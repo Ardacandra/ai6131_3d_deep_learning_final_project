@@ -211,3 +211,6 @@ tc2_logs/
 *.err
 *.out
 *.sh
+
+# Ignore sandbox scripts
+sandbox.py
