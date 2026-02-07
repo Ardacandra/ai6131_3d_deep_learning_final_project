@@ -1,25 +1,71 @@
 # AI6131-3D Deep Learning Final Project
-This repository contains my work for the final project of NTU MSAI AI6131-3D Deep Learning class.
 
-### Setup Instructions
+This repository contains the final project for NTU MSAI's **AI6131-3D Deep Learning** course. The project focuses on 3D object recognition and reconstruction using deep learning techniques on the ShapeNet dataset.
 
-1. Clone the repository
+## Prerequisites
+
+Before getting started, ensure you have the following installed:
+- **Conda** (Miniconda or Anaconda) - for environment management
+- **Git** - for cloning the repository
+- **NVIDIA CUDA 11.8+** (recommended) - for GPU acceleration with PyTorch
+- **HuggingFace API Token** - to access the ShapeNet dataset (get one at https://huggingface.co/settings/tokens)
+
+## Setup Instructions
+
+### 1. Clone the Repository
+
+Download a copy of this project to your local machine:
 
 ```bash
 git clone https://github.com/Ardacandra/ai6131_3d_deep_learning_final_project.git
 cd ai6131_3d_deep_learning_final_project
 ```
 
-2. Prepare conda environment
+### 2. Set Up the Conda Environment
+
+Create an isolated Python environment with all necessary dependencies. This ensures your project won't conflict with other Python packages on your system.
 
 ```bash
-# Create the environment
+# Create a new conda environment with Python 3.10
 conda create -n ai6131_3d_deep_learning_final_project python=3.10 -y
+
+# Activate the environment
 conda activate ai6131_3d_deep_learning_final_project
 
-# Install Core DL Stack (PyTorch + CUDA)
+# Install PyTorch with CUDA 11.8 support for GPU acceleration
 conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -y
 
-# Install project dependencies
+# Install all other project dependencies from requirements.txt
 pip install -r requirements.txt
+```
+
+### 3. Configure HuggingFace Authentication
+
+The ShapeNet dataset is hosted on HuggingFace, so you need to provide your access token:
+
+1. **Create a `.env` file** by copying the example template:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Add your HuggingFace token** to the `.env` file:
+   - Get your token from https://huggingface.co/settings/tokens
+   - Open `.env` in a text editor and set:
+     ```
+     HF_TOKEN=your_token_here
+     ```
+
+### 4. Download and Prepare the Dataset
+
+Download the ShapeNet dataset locally. This script uses your HF token to authenticate with HuggingFace:
+
+```bash
+python prepare_dataset.py
+```
+
+The dataset will be downloaded to `./data/shapenet_v2_subset/`. Unzip them with the following script:
+
+```bash
+cd ./data/shapenet_v2_subset
+for f in *.zip; do unzip "$f"; done
 ```
