@@ -214,3 +214,6 @@ tc2_logs/
 
 # Ignore sandbox scripts
 sandbox.py
+
+# Ignore project specific directories
+data/
