@@ -12,8 +12,8 @@ def main():
     target_synsets = [
         "02747177",  # Chair
         "02691156",  # Airplane
-        "04379243",  # Table
-        "02958343",  # Car
+        # "04379243",  # Table
+        # "02958343",  # Car
     ]
 
     patterns = [f"{sid}.zip" for sid in target_synsets]    
