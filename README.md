@@ -59,10 +59,13 @@ The ShapeNet dataset is hosted on HuggingFace, so you need to provide your acces
 
 All project-wide settings are centralized in **`config.py`**. This is the single source of truth for:
 
-- **ShapeNet Categories** - Define which object categories to work with
-- **Data Paths** - Dataset and output directory locations
-- **Visualization Settings** - Sample sizes, figure dimensions, etc.
-- **File Formats** - References to 3D file formats (OBJ, BinVOX, etc.)
+- **ShapeNet Categories** - Define which object categories to work with (default: Airplane, Chair)
+- **Data Paths** - Dataset directory (`./data/shapenet_v2_subset/`) and output directories
+- **Visualization Settings** - Sample sizes, figure dimensions, voxel downsampling, etc.
+- **File Formats** - References to 3D file formats (OBJ, BinVOX, JSON)
+- **DeepSDF Preprocessing Settings** - All parameters for SDF generation (samples, variance, voting, etc.)
+
+To customize settings, simply edit `config.py` and the changes will be applied across all scripts automatically.
 
 ### 5. Download and Prepare the Dataset
 
@@ -98,3 +101,90 @@ This script will:
 **Output files** (for each category in `SHAPENET_CATEGORIES`):
 - `visualization_<category>_models.png` - Mesh visualizations
 - `visualization_<category>_voxels.png` - Voxel grid visualizations
+
+## Data Preprocessing for DeepSDF
+
+To train a DeepSDF model for 3D shape reconstruction, preprocess the ShapeNet dataset into signed distance fields (SDF).
+
+### Overview
+
+The preprocessing pipeline implements the methodology from the DeepSDF paper (Park et al., CVPR 2019):
+
+- **Mesh Normalization** - Scale each mesh to a unit sphere
+- **Surface Sampling** - Sample 500,000 spatial points with 47% density near the surface
+- **Proper Orientation** - Handle non-watertight meshes using visible surface sampling with virtual cameras (100 viewpoints)
+- **SDF Computation** - Compute signed distance values using k-nearest neighbor voting (11 neighbors)
+- **Output** - Save as NPZ format with separate positive/negative samples
+
+**All preprocessing parameters are configured in `config.py`** under `DEEPSDF_SETTINGS`. Default values:
+- `num_spatial_samples`: 500,000
+- `surface_variance`: 0.005
+- `num_votes`: 11 (k-NN neighbors for sign voting)
+- `num_views`: 100 (virtual camera viewpoints)
+- `output_format`: "npz"
+
+### Running the Preprocessing
+
+**Basic usage - process all categories (uses defaults from `config.py`):**
+
+```bash
+python prepare_deepsdf.py
+```
+
+**Available Options:**
+
+```bash
+# Process specific category
+python prepare_deepsdf.py --category Airplane
+
+# Custom output directory
+python prepare_deepsdf.py --output ./custom_sdf_dir/
+
+# Override number of spatial samples per mesh (default: 500,000)
+python prepare_deepsdf.py --num-samples 250000
+
+# Override variance for surface sampling (default: 0.005)
+python prepare_deepsdf.py --variance 0.01
+
+# Override output format (default: npz)
+python prepare_deepsdf.py --format npy
+
+# Enable verbose logging
+python prepare_deepsdf.py --verbose
+
+# Get detailed help
+python prepare_deepsdf.py --help
+```
+
+**To permanently change preprocessing defaults,** edit the `DEEPSDF_SETTINGS` dictionary in `config.py` instead of passing command-line arguments.
+
+### Output Structure
+
+Processed data is organized by category and model:
+
+```
+./data/shapenet_sdf/
+├── Airplane/
+│   ├── model_id_1/
+│   │   └── sdf.npz          # SDF data (pos, neg samples)
+│   ├── model_id_2/
+│   └── ...
+└── Chair/
+    ├── model_id_1/
+    │   └── sdf.npz
+    └── ...
+```
+
+Each `sdf.npz` file contains:
+- **pos**: Positive SDF samples (outside the mesh) - shape: (N, 4) [x, y, z, sdf_value]
+- **neg**: Negative SDF samples (inside the mesh) - shape: (M, 4) [x, y, z, sdf_value]
+
+## References
+
+### DeepSDF
+
+**Park et al., "DeepSDF: Learning Continuous Signed Distance Functions for Shape Representation"** (CVPR 2019)
+
+### ShapeNet Dataset
+
+**Chang et al., "ShapeNet: An Information-Rich 3D Model Repository"** (arXiv:1512.02101, 2015)

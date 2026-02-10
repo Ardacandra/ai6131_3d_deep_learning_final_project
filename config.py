@@ -42,3 +42,15 @@ FILE_FORMATS = {
     "voxel_solid": "model_normalized.solid.binvox",
     "metadata": "model_normalized.json",
 }
+
+# DeepSDF preprocessing settings
+DEEPSDF_SETTINGS = {
+    "num_spatial_samples": 500000,  # Total spatial samples per mesh
+    "surface_variance": 0.005,      # Variance for near-surface sampling
+    "near_surface_ratio": 47.0 / 50.0,  # Ratio of near-surface to random samples
+    "output_format": "npz",         # Output format: "npz" or "npy"
+    "output_dir": Path("./data/shapenet_sdf/"),  # Output directory for SDF data
+    "num_votes": 11,                # Number of neighbors for SDF voting
+    "num_views": 100,               # Number of virtual camera views
+    "bounding_cube_dim": 2.0,       # Bounding cube dimension
+}
