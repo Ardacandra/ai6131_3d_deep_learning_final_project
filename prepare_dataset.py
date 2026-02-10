@@ -1,26 +1,23 @@
 from huggingface_hub import snapshot_download, login
 import os
 from dotenv import load_dotenv
+from config import DATA_DIR, TARGET_SYNSETS, SHAPENET_CATEGORIES
 
 def main():
     load_dotenv()
     login(token=os.getenv("HF_TOKEN"), add_to_git_credential=False)
 
-    local_dir = "./data/shapenet_v2_subset"
+    local_dir = str(DATA_DIR)
     os.makedirs(local_dir, exist_ok=True)
 
-    target_synsets = [
-        "02747177",  # Chair
-        "02691156",  # Airplane
-        # "04379243",  # Table
-        # "02958343",  # Car
-    ]
-
-    patterns = [f"{sid}.zip" for sid in target_synsets]    
+    patterns = [f"{sid}.zip" for sid in TARGET_SYNSETS]    
     # Also include the taxonomy file so you know which ID is which
     patterns.append("taxonomy.json")
 
-    print(f"Starting download of {len(target_synsets)} categories...")
+    print(f"Starting download of {len(TARGET_SYNSETS)} categories...")
+    print("Categories to download:")
+    for synset_id in TARGET_SYNSETS:
+        print(f"  • {SHAPENET_CATEGORIES.get(synset_id, 'Unknown')} ({synset_id})")
 
     snapshot_download(
         repo_id="ShapeNet/ShapeNetCore",

@@ -55,7 +55,16 @@ The ShapeNet dataset is hosted on HuggingFace, so you need to provide your acces
      HF_TOKEN=your_token_here
      ```
 
-### 4. Download and Prepare the Dataset
+### 4. Project Configuration
+
+All project-wide settings are centralized in **`config.py`**. This is the single source of truth for:
+
+- **ShapeNet Categories** - Define which object categories to work with
+- **Data Paths** - Dataset and output directory locations
+- **Visualization Settings** - Sample sizes, figure dimensions, etc.
+- **File Formats** - References to 3D file formats (OBJ, BinVOX, etc.)
+
+### 5. Download and Prepare the Dataset
 
 Download the ShapeNet dataset locally. This script uses your HF token to authenticate with HuggingFace:
 
@@ -71,7 +80,7 @@ for f in *.zip; do unzip "$f"; done
 cd ../..
 ```
 
-### 5. Explore and Visualize the Dataset
+### 6. Explore and Visualize the Dataset
 
 To understand how 3D objects are represented in the dataset and visualize sample models, run the visualization script:
 
@@ -82,17 +91,10 @@ python visualize_dataset.py
 This script will:
 - **Scan the dataset** and display statistics (number of models per category)
 - **Show file formats** used in the dataset (OBJ mesh, BinVOX voxels, etc.)
-- **Generate mesh visualizations** showing 4 sample models from each category as 3D point clouds with wireframe edges
+- **Generate mesh visualizations** showing sample models from each category as 3D point clouds with wireframe edges
 - **Generate voxel visualizations** showing the volumetric representation of models
 - **Save all visualizations** to the `./out/` directory as PNG files
 
-**Output files:**
-- `visualization_airplane_models.png` - 4 sample airplane mesh models
-- `visualization_chair_models.png` - 4 sample chair mesh models
-- `visualization_airplane_voxels.png` - Voxelized airplane representations
-- `visualization_chair_voxels.png` - Voxelized chair representations
-
-You can customize the output directory by modifying the script:
-```python
-explorer = ShapeNetExplorer(output_dir="./custom_output/")
-```
+**Output files** (for each category in `SHAPENET_CATEGORIES`):
+- `visualization_<category>_models.png` - Mesh visualizations
+- `visualization_<category>_voxels.png` - Voxel grid visualizations

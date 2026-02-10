@@ -13,23 +13,23 @@ import glob
 from typing import Dict, List, Tuple
 import struct
 
-# Import reusable utilities
+# Import reusable utilities and configuration
 from shapenet_utils import load_obj, load_binvox, compute_voxel_statistics
-
-# Category ID to name mapping
-CATEGORY_NAMES = {
-    "02691156": "Airplane",
-    "02747177": "Chair"
-}
+from config import (
+    DATA_DIR,
+    OUTPUT_DIR,
+    SHAPENET_CATEGORIES,
+    VISUALIZATION_SETTINGS,
+    FILE_FORMATS,
+)
 
 
 class ShapeNetExplorer:
     """Explore and visualize ShapeNet dataset"""
     
-    def __init__(self, data_dir: str = "./data/shapenet_v2_subset", 
-                 output_dir: str = "./out/"):
-        self.data_dir = Path(data_dir)
-        self.output_dir = Path(output_dir)
+    def __init__(self, data_dir: Path = None, output_dir: Path = None):
+        self.data_dir = data_dir or DATA_DIR
+        self.output_dir = output_dir or OUTPUT_DIR
         self.category_stats = {}
         
         # Create output directory if it doesn't exist
@@ -50,7 +50,7 @@ class ShapeNetExplorer:
             if not category_path.is_dir() or category_id.startswith('.'):
                 continue
             
-            category_name = CATEGORY_NAMES.get(category_id, "Unknown")
+            category_name = SHAPENET_CATEGORIES.get(category_id, "Unknown")
             model_dirs = [d for d in os.listdir(category_path) 
                          if (category_path / d).is_dir() and not d.startswith('.')]
             
@@ -253,9 +253,12 @@ class ShapeNetExplorer:
 
 def main():
     """Main execution"""
-    # You can specify a custom output directory here
-    # explorer = ShapeNetExplorer(output_dir="./custom_output/")
+    # Initialize explorer with settings from config
+    # You can override with: ShapeNetExplorer(data_dir=Path("./custom_data/"))
     explorer = ShapeNetExplorer()
+    
+    print(f"📂 Data source: {explorer.data_dir.resolve()}")
+    print(f"💾 Output directory: {explorer.output_dir.resolve()}\n")
     
     # Scan and analyze dataset
     explorer.scan_dataset()
@@ -264,12 +267,14 @@ def main():
     explorer.print_summary()
     
     # Visualize mesh models
-    print("💾 Generating 3D mesh visualizations...")
-    explorer.visualize_models(num_samples=4)
+    num_samples_models = VISUALIZATION_SETTINGS["sample_models_per_category"]
+    print(f"💾 Generating {num_samples_models} 3D mesh visualizations per category...")
+    explorer.visualize_models(num_samples=num_samples_models)
     
     # Visualize voxel representations
-    print("💾 Generating voxel grid visualizations...")
-    explorer.visualize_voxels(num_samples=2)
+    num_samples_voxels = VISUALIZATION_SETTINGS["sample_voxels_per_category"]
+    print(f"💾 Generating {num_samples_voxels} voxel grid visualizations per category...")
+    explorer.visualize_voxels(num_samples=num_samples_voxels)
     
     print("\n✨ Visualization complete! Check the generated PNG files.")
 
