@@ -131,51 +131,7 @@ The preprocessing pipeline implements the methodology from the DeepSDF paper (Pa
 python prepare_deepsdf.py
 ```
 
-**Available Options:**
-
-```bash
-# Process specific category
-python prepare_deepsdf.py --category Airplane
-
-# Custom output directory
-python prepare_deepsdf.py --output ./custom_sdf_dir/
-
-# Override number of spatial samples per mesh (default: 500,000)
-python prepare_deepsdf.py --num-samples 250000
-
-# Override variance for surface sampling (default: 0.005)
-python prepare_deepsdf.py --variance 0.01
-
-# Override output format (default: npz)
-python prepare_deepsdf.py --format npy
-
-# Enable verbose logging
-python prepare_deepsdf.py --verbose
-
-# Get detailed help
-python prepare_deepsdf.py --help
-```
-
-**To permanently change preprocessing defaults,** edit the `DEEPSDF_SETTINGS` dictionary in `config.py` instead of passing command-line arguments.
-
-### Output Structure
-
-Processed data is organized by category and model:
-
-```
-./data/shapenet_sdf/
-├── Airplane/
-│   ├── model_id_1/
-│   │   └── sdf.npz          # SDF data (pos, neg samples)
-│   ├── model_id_2/
-│   └── ...
-└── Chair/
-    ├── model_id_1/
-    │   └── sdf.npz
-    └── ...
-```
-
-Each `sdf.npz` file contains:
+Each output `sdf.npz` file contains:
 - **pos**: Positive SDF samples (outside the mesh) - shape: (N, 4) [x, y, z, sdf_value]
 - **neg**: Negative SDF samples (inside the mesh) - shape: (M, 4) [x, y, z, sdf_value]
 
