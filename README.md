@@ -68,4 +68,31 @@ The dataset will be downloaded to `./data/shapenet_v2_subset/`. Unzip them with 
 ```bash
 cd ./data/shapenet_v2_subset
 for f in *.zip; do unzip "$f"; done
+cd ../..
+```
+
+### 5. Explore and Visualize the Dataset
+
+To understand how 3D objects are represented in the dataset and visualize sample models, run the visualization script:
+
+```bash
+python visualize_dataset.py
+```
+
+This script will:
+- **Scan the dataset** and display statistics (number of models per category)
+- **Show file formats** used in the dataset (OBJ mesh, BinVOX voxels, etc.)
+- **Generate mesh visualizations** showing 4 sample models from each category as 3D point clouds with wireframe edges
+- **Generate voxel visualizations** showing the volumetric representation of models
+- **Save all visualizations** to the `./out/` directory as PNG files
+
+**Output files:**
+- `visualization_airplane_models.png` - 4 sample airplane mesh models
+- `visualization_chair_models.png` - 4 sample chair mesh models
+- `visualization_airplane_voxels.png` - Voxelized airplane representations
+- `visualization_chair_voxels.png` - Voxelized chair representations
+
+You can customize the output directory by modifying the script:
+```python
+explorer = ShapeNetExplorer(output_dir="./custom_output/")
 ```
