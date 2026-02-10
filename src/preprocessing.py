@@ -246,17 +246,19 @@ class SpatialPointSampler:
 class SDFComputer:
     """Compute signed distance fields"""
     
-    def __init__(self, mesh: trimesh.Trimesh, surface_points: np.ndarray):
+    def __init__(self, mesh: trimesh.Trimesh, surface_points: np.ndarray, surface_normals: np.ndarray):
         """
         Initialize SDF computer.
         
         Args:
             mesh: Input trimesh
             surface_points: Surface points with proper orientation
+            surface_normals: Surface normals at sampled points
         """
         self.mesh = mesh
         self.surface_tree = cKDTree(surface_points)
         self.surface_points = surface_points
+        self.surface_normals = surface_normals
     
     def compute(
         self,
@@ -266,7 +268,7 @@ class SDFComputer:
         """
         Compute signed distance field values.
         
-        Uses majority voting among k-nearest neighbors to determine sign.
+        Uses majority voting among k-nearest neighbors to determine sign based on surface normals.
         
         Args:
             spatial_points: Points at which to compute SDF
@@ -290,18 +292,29 @@ class SDFComputer:
             if np.isscalar(nearest_distances):
                 nearest_distances = np.array([nearest_distances])
             
-            # Use unsigned distance as magnitude
+            # Use median distance as magnitude
             distance_mag = np.median(nearest_distances)
             
-            # Majority voting for sign determination
-            num_positive = 0
+            # Majority voting for sign determination using surface normals
+            # A point is on the positive side (outside) if it's in the direction of the normal
+            num_positive_votes = 0
+            
             for nn_idx in nearest_indices:
                 if nn_idx < len(self.surface_points):
-                    # Simple heuristic: point is inside if below surface
-                    num_positive += 1
+                    surface_point = self.surface_points[nn_idx]
+                    surface_normal = self.surface_normals[nn_idx]
+                    
+                    # Vector from surface point to spatial point
+                    to_point_vector = point - surface_point
+                    
+                    # Dot product with normal determines side
+                    # Positive dot product = point is on the outside (positive SDF)
+                    # Negative dot product = point is on the inside (negative SDF)
+                    if np.dot(to_point_vector, surface_normal) > 0:
+                        num_positive_votes += 1
             
-            # Assign sign based on majority
-            sign = 1.0 if num_positive > num_votes // 2 else -1.0
+            # Assign sign based on majority vote
+            sign = 1.0 if num_positive_votes > num_votes // 2 else -1.0
             sdf = sign * distance_mag
             
             sdf_values.append(sdf)
@@ -391,7 +404,7 @@ class DeepSDFPreprocessor:
         logger.info(f"Total spatial points: {len(spatial_points)}")
         
         # Compute SDF values
-        sdf_computer = SDFComputer(mesh, surface_points)
+        sdf_computer = SDFComputer(mesh, surface_points, surface_normals)
         sdf_values = sdf_computer.compute(spatial_points)
         
         # Save output
