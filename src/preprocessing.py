@@ -280,7 +280,8 @@ class SDFComputer:
         """
         Compute signed distance field values.
         
-        Uses majority voting among k-nearest neighbors to determine sign based on surface normals.
+        Uses majority voting by checking if points are closer or further from mesh center
+        compared to their nearest surface neighbors.
         
         Args:
             spatial_points: Points at which to compute SDF
@@ -295,6 +296,9 @@ class SDFComputer:
         # Find k-nearest neighbors
         distances, indices = self.surface_tree.query(spatial_points, k=num_votes)
         
+        # Compute mesh center for inside/outside determination
+        mesh_center = self.surface_points.mean(axis=0)
+        
         sdf_values = []
         
         for i, point in enumerate(tqdm(spatial_points, desc="Computing SDF")):
@@ -307,26 +311,25 @@ class SDFComputer:
             # Use median distance as magnitude
             distance_mag = np.median(nearest_distances)
             
-            # Majority voting for sign determination using surface normals
-            # A point is on the positive side (outside) if it's in the direction of the normal
-            num_positive_votes = 0
+            # Majority voting for sign determination based on distance from mesh center
+            # Points closer to center than their surface neighbors = inside (negative)
+            # Points further from center than their surface neighbors = outside (positive)
+            num_inside_votes = 0
+            
+            dist_to_center_point = np.linalg.norm(point - mesh_center)
             
             for nn_idx in nearest_indices:
                 if nn_idx < len(self.surface_points):
                     surface_point = self.surface_points[nn_idx]
-                    surface_normal = self.surface_normals[nn_idx]
+                    dist_to_center_surface = np.linalg.norm(surface_point - mesh_center)
                     
-                    # Vector from surface point to spatial point
-                    to_point_vector = point - surface_point
-                    
-                    # Dot product with normal determines side
-                    # Positive dot product = point is on the outside (positive SDF)
-                    # Negative dot product = point is on the inside (negative SDF)
-                    if np.dot(to_point_vector, surface_normal) > 0:
-                        num_positive_votes += 1
+                    # If point is closer to center than surface point, it's likely inside
+                    if dist_to_center_point < dist_to_center_surface:
+                        num_inside_votes += 1
             
             # Assign sign based on majority vote
-            sign = 1.0 if num_positive_votes > num_votes // 2 else -1.0
+            # More votes for inside = negative SDF, more votes for outside = positive SDF
+            sign = -1.0 if num_inside_votes > num_votes // 2 else 1.0
             sdf = sign * distance_mag
             
             sdf_values.append(sdf)

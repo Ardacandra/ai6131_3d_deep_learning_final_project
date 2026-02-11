@@ -122,36 +122,89 @@ def plot_sdf_distribution(pos_data: np.ndarray, neg_data: np.ndarray):
 
 
 def plot_3d_scatter_matplotlib(pos_data: np.ndarray, neg_data: np.ndarray):
-    """Create 3D scatter plot using matplotlib."""
-    fig = plt.figure(figsize=(12, 10))
-    ax = fig.add_subplot(111, projection='3d')
+    """Create two separate 3D scatter plots for inside and outside with same scale."""
+    fig = plt.figure(figsize=(18, 8))
     
-    # Sample points if too many (for performance)
+    # Calculate combined bounds for both plots
+    all_points = []
     if len(pos_data) > 0:
+        all_points.append(pos_data[:, :3])
+    if len(neg_data) > 0:
+        all_points.append(neg_data[:, :3])
+    
+    if all_points:
+        all_coords = np.vstack(all_points)
+        xyz_min = all_coords.min(axis=0)
+        xyz_max = all_coords.max(axis=0)
+        # Add some padding
+        padding = (xyz_max - xyz_min) * 0.05
+        xyz_min -= padding
+        xyz_max += padding
+    
+    # Plot 1: Outside (Positive SDF)
+    if len(pos_data) > 0:
+        ax1 = fig.add_subplot(121, projection='3d')
+        
         sample_rate = max(1, len(pos_data) // 2000)
         pos_sample = pos_data[::sample_rate]
         
-        # Plot points
-        scatter_pos = ax.scatter(
+        vmax_pos = np.max(np.abs(pos_data[:, 3])) if len(pos_data) > 0 else 1.0
+        scatter_pos = ax1.scatter(
             pos_sample[:, 0], pos_sample[:, 1], pos_sample[:, 2],
-            c=pos_sample[:, 3], cmap='Greens', s=10, alpha=0.6, label='Positive (outside)'
+            c=np.abs(pos_sample[:, 3]),  # Distance magnitude
+            cmap='Greens',  # Lighter = close, Darker = far
+            s=20, alpha=0.45,
+            edgecolors='darkgreen', linewidth=0.5, vmin=0, vmax=vmax_pos
         )
-        cbar_pos = plt.colorbar(scatter_pos, ax=ax, pad=0.1, shrink=0.8)
-        cbar_pos.set_label('Positive SDF')
+        cbar_pos = plt.colorbar(scatter_pos, ax=ax1, pad=0.15, shrink=0.8)
+        cbar_pos.set_label('Distance from Surface', fontsize=10, fontweight='bold')
+        cbar_pos.ax.tick_params(labelsize=9)
+        
+        ax1.set_xlabel('X', fontsize=11, fontweight='bold')
+        ax1.set_ylabel('Y', fontsize=11, fontweight='bold')
+        ax1.set_zlabel('Z', fontsize=11, fontweight='bold')
+        ax1.set_title('Outside (Positive SDF)', fontsize=12, fontweight='bold', pad=15, color='darkgreen')
+        ax1.grid(True, alpha=0.3)
+        
+        # Set same scale for both plots
+        if all_points:
+            ax1.set_xlim(xyz_min[0], xyz_max[0])
+            ax1.set_ylim(xyz_min[1], xyz_max[1])
+            ax1.set_zlim(xyz_min[2], xyz_max[2])
     
+    # Plot 2: Inside (Negative SDF)
     if len(neg_data) > 0:
+        ax2 = fig.add_subplot(122, projection='3d')
+        
         sample_rate = max(1, len(neg_data) // 2000)
         neg_sample = neg_data[::sample_rate]
-        scatter_neg = ax.scatter(
+        
+        vmax_neg = np.max(np.abs(neg_data[:, 3])) if len(neg_data) > 0 else 1.0
+        scatter_neg = ax2.scatter(
             neg_sample[:, 0], neg_sample[:, 1], neg_sample[:, 2],
-            c=neg_sample[:, 3], cmap='Reds_r', s=10, alpha=0.6, label='Negative (inside)'
+            c=np.abs(neg_sample[:, 3]),  # Distance magnitude
+            cmap='Reds',  # Lighter = close, Darker = far
+            s=20, alpha=0.45,
+            edgecolors='darkred', linewidth=0.5, vmin=0, vmax=vmax_neg
         )
+        cbar_neg = plt.colorbar(scatter_neg, ax=ax2, pad=0.15, shrink=0.8)
+        cbar_neg.set_label('Distance from Surface', fontsize=10, fontweight='bold')
+        cbar_neg.ax.tick_params(labelsize=9)
+        
+        ax2.set_xlabel('X', fontsize=11, fontweight='bold')
+        ax2.set_ylabel('Y', fontsize=11, fontweight='bold')
+        ax2.set_zlabel('Z', fontsize=11, fontweight='bold')
+        ax2.set_title('Inside (Negative SDF)', fontsize=12, fontweight='bold', pad=15, color='darkred')
+        ax2.grid(True, alpha=0.3)
+        
+        # Set same scale for both plots
+        if all_points:
+            ax2.set_xlim(xyz_min[0], xyz_max[0])
+            ax2.set_ylim(xyz_min[1], xyz_max[1])
+            ax2.set_zlim(xyz_min[2], xyz_max[2])
     
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.set_title('SDF Point Cloud (sampled)')
-    ax.legend()
+    fig.suptitle('SDF Point Cloud - Inside vs Outside', fontsize=14, fontweight='bold', y=0.98)
+    plt.tight_layout()
     
     return fig
 
