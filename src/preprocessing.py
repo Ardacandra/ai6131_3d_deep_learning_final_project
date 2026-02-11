@@ -127,17 +127,29 @@ class SurfaceSampler:
             face = self.mesh.faces[face_idx]
             v0, v1, v2 = self.mesh.vertices[face]
             
-            # Compute face normal
+            # Compute face normal using right-hand rule
             normal = np.cross(v1 - v0, v2 - v0)
-            normal = normal / (np.linalg.norm(normal) + 1e-8)
+            normal_length = np.linalg.norm(normal)
+            if normal_length > 1e-8:
+                normal = normal / normal_length
+            else:
+                normal = np.array([0., 0., 1.])  # Fallback for degenerate faces
             
-            # Track visibility and orientation from each view
+            # Majority voting: count how many views see this normal as front-facing
+            # Front-facing means dot(normal, view_direction) > 0
+            front_facing_votes = 0
+            face_center = (v0 + v1 + v2) / 3.0
+            
             for view in views:
-                view_dir = view / np.linalg.norm(view)
+                view_dir = (view - face_center) / (np.linalg.norm(view - face_center) + 1e-8)
                 dot_product = np.dot(normal, view_dir)
                 
-                if dot_product < 0:  # Inverted normal
-                    normal = -normal
+                if dot_product > 0:  # Normal points towards this view (outward)
+                    front_facing_votes += 1
+            
+            # If majority of views see it as back-facing, flip the normal
+            if front_facing_votes < len(views) // 2:
+                normal = -normal
             
             face_normals[face_idx] = normal
         
