@@ -7,7 +7,7 @@ This repository contains the final project for NTU MSAI's **AI6131-3D Deep Learn
 Before getting started, ensure you have the following installed:
 - **Conda** (Miniconda or Anaconda) - for environment management
 - **Git** - for cloning the repository
-- **NVIDIA CUDA 11.8+** (recommended) - for GPU acceleration with PyTorch
+- **NVIDIA CUDA 12.1+** (recommended) - for GPU acceleration with PyTorch
 - **HuggingFace API Token** - to access the ShapeNet dataset (get one at https://huggingface.co/settings/tokens)
 
 ## Setup Instructions
@@ -26,14 +26,14 @@ cd ai6131_3d_deep_learning_final_project
 Create an isolated Python environment with all necessary dependencies. This ensures your project won't conflict with other Python packages on your system.
 
 ```bash
-# Create a new conda environment with Python 3.10
-conda create -n ai6131_3d_deep_learning_final_project python=3.10 -y
+# Create a new conda environment with Python 3.9
+conda create -n ai6131_3d_deep_learning_final_project python=3.9 -y
 
 # Activate the environment
 conda activate ai6131_3d_deep_learning_final_project
 
-# Install PyTorch with CUDA 11.8 support for GPU acceleration
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -y
+# Install PyTorch with CUDA 12.1 support for GPU acceleration
+conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia -y
 
 # Install all other project dependencies from requirements.txt
 pip install -r requirements.txt
