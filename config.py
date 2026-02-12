@@ -54,3 +54,48 @@ DEEPSDF_SETTINGS = {
     "num_views": 100,               # Number of virtual camera views
     "bounding_cube_dim": 2.0,       # Bounding cube dimension
 }
+
+# DeepSDF dataset defaults
+DEEPSDF_DATASET = {
+    "extensions": [".npz", ".npy"],
+}
+
+# DeepSDF model defaults
+DEEPSDF_MODEL = {
+    "latent_size": 64,
+    "hidden_size": 256,
+    "num_layers": 6,
+    "dims": None,
+    "dropout": None,
+    "dropout_prob": 0.0,
+    "norm_layers": (),
+    "latent_in": (),
+    "weight_norm": False,
+    "xyz_in_all": False,
+    "use_tanh": False,
+    "latent_dropout": False,
+}
+
+# DeepSDF training defaults
+DEEPSDF_TRAINING = {
+    "data_root": Path("./data/shapenet_sdf"),
+    "latent_size": 64,
+    "hidden_size": 256,
+    "lr": 1e-4,
+    "epochs": 10,
+    "batch_points": 2048,
+    "samples_per_scene": 2048,
+    "scenes_per_batch": 1,
+    "batch_split": 1,
+    "clamp_dist": 0.1,
+    "code_regularization": True,
+    "code_regularization_lambda": 1e-4,
+    "code_bound": None,
+    "code_init_stddev": 1.0,
+    "grad_clip_norm": None,
+    "log_frequency": 10,
+    "snapshot_frequency": 1,
+    "additional_snapshots": [],
+    "lr_schedules": None,
+    "save_dir": Path("./deepsdf_checkpoints"),
+}

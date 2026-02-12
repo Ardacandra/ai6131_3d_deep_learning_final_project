@@ -218,3 +218,4 @@ sandbox.py
 # Ignore project specific directories
 data/
 out/
+deepsdf_checkpoints/

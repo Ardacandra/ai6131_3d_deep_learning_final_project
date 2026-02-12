@@ -135,6 +135,36 @@ Each output `sdf.npz` file contains:
 - **pos**: Positive SDF samples (outside the mesh) - shape: (N, 4) [x, y, z, sdf_value]
 - **neg**: Negative SDF samples (inside the mesh) - shape: (M, 4) [x, y, z, sdf_value]
 
+## DeepSDF Training
+
+### Overview
+
+The training loop follows the original DeepSDF autodecoder procedure:
+- **Latent codes per shape** - an embedding table is optimized alongside the decoder
+- **Scene-wise sampling** - sample `samples_per_scene` points per shape
+- **Clamping** - clamp both targets and predictions to `clamp_dist`
+- **Code regularization** - L2 penalty on latent codes with warm-up
+- **Split batches** - optional `batch_split` to fit memory
+
+### Running Training
+
+**Basic usage (uses defaults from `config.py`):**
+
+```bash
+python -m src.deepsdf.train
+```
+
+**Custom data root and hyperparameters:**
+
+```bash
+python -m src.deepsdf.train ./data/shapenet_sdf \
+   --latent-size 64 \
+   --hidden-size 256 \
+   --epochs 50 \
+   --batch-points 2048 \
+   --save-dir ./deepsdf_checkpoints
+```
+
 ## References
 
 ### DeepSDF
