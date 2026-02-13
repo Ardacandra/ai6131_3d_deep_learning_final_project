@@ -1,3 +1,3 @@
-"""DeepSDF training utilities."""
+"""DeepSDF training and evaluation utilities."""
 
-__all__ = ["model", "dataset", "train"]
+__all__ = ["model", "dataset", "train", "evaluate"]

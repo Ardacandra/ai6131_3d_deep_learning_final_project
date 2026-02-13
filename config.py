@@ -82,7 +82,7 @@ DEEPSDF_TRAINING = {
     "latent_size": 64,
     "hidden_size": 256,
     "lr": 1e-4,
-    "epochs": 10,
+    "epochs": 50,
     "batch_points": 2048,
     "samples_per_scene": 2048,
     "scenes_per_batch": 1,
@@ -94,8 +94,21 @@ DEEPSDF_TRAINING = {
     "code_init_stddev": 1.0,
     "grad_clip_norm": None,
     "log_frequency": 10,
-    "snapshot_frequency": 1,
+    "snapshot_frequency": 5,
     "additional_snapshots": [],
     "lr_schedules": None,
     "save_dir": Path("./deepsdf_checkpoints"),
+}
+
+# DeepSDF evaluation defaults
+DEEPSDF_EVALUATION = {
+    "checkpoint": Path("./deepsdf_checkpoints/deepsdf_latest.pth"),
+    "data_root": Path("./data/shapenet_sdf"),
+    "gt_data_root": Path("./data/shapenet_v2_subset"),
+    "resolution": 128,  # Grid resolution for marching cubes
+    "num_sample_points": 10000,  # Number of points to sample from meshes
+    "batch_size": 32768,  # Batch size for SDF queries
+    "max_shapes": None,  # Maximum number of shapes to evaluate (None for all)
+    "output_file": "out/deepsdf_evaluation_results.json",  # Output file for detailed results
+    "percentile": 90.0,  # Percentile for mesh accuracy metric
 }

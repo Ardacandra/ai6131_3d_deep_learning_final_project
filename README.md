@@ -165,6 +165,46 @@ python -m src.deepsdf.train ./data/shapenet_sdf \
    --save-dir ./deepsdf_checkpoints
 ```
 
+## DeepSDF Evaluation
+
+### Overview
+
+The evaluation script measures the quality of the trained DeepSDF model by comparing reconstructed meshes against ground truth meshes from the dataset. Three key metrics are computed:
+
+1. **Chamfer Distance (Mean and Median)**
+   - Bidirectional point-to-point distance between predicted and ground truth meshes
+   - Measures geometric similarity between shapes
+   
+2. **Earth Mover's Distance (Mean and Median)**
+   - Wasserstein distance computed per coordinate dimension
+   - Measures distribution similarity between point clouds
+   
+3. **Mesh Accuracy @ 90%**
+   - The minimum distance d such that 90% of generated points are within d of the ground truth
+   - Measures reconstruction precision
+
+### Running Evaluation
+
+**Basic usage (evaluates all shapes with latest checkpoint):**
+
+```bash
+python -m src.deepsdf.evaluate
+```
+
+**Full parameter control:**
+
+```bash
+python -m src.deepsdf.evaluate \
+   --checkpoint deepsdf_checkpoints/deepsdf_latest.pth \
+   --data-root data/shapenet_sdf \
+   --gt-data-root data/shapenet_v2_subset \
+   --device cuda \
+   --resolution 128 \
+   --num-sample-points 10000 \
+   --max-shapes 100 \
+   --output my_evaluation.json
+```
+
 ## References
 
 ### DeepSDF

@@ -255,7 +255,7 @@ def train_autodecoder(
             torch.save(ckpt, save_path / "deepsdf_latest.pth")
 
     # Save final metadata
-    meta = {"num_shapes": num_shapes, "latent_size": latent_size}
+    meta = {"num_shapes": num_shapes, "latent_size": latent_size, "hidden_size": hidden_size}
     with open(save_path / "meta.json", "w") as f:
         json.dump(meta, f)
 
