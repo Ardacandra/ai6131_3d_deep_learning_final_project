@@ -205,6 +205,24 @@ python -m src.deepsdf.evaluate \
    --output my_evaluation.json
 ```
 
+## DeepSDF Output Visualization
+
+**Visualize 5 random shapes:**
+
+```bash
+python visualize_deepsdf.py
+```
+
+**Visualize with custom parameters:**
+
+```bash
+python visualize_deepsdf.py \
+   --checkpoint deepsdf_checkpoints/deepsdf_latest.pth \
+   --num-shapes 10 \
+   --resolution 256 \
+   --output-dir ./out/deepsdf_visualizations/
+```
+
 ## References
 
 ### DeepSDF
