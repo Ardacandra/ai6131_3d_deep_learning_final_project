@@ -13,7 +13,7 @@ OUTPUT_DIR = Path("./out/")
 # Format: {synset_id: category_name}
 SHAPENET_CATEGORIES = {
     "02691156": "Airplane",
-    "02747177": "Chair",
+    "03001627": "Chair",
     "04379243": "Table",
 }
 
