@@ -14,9 +14,7 @@ OUTPUT_DIR = Path("./out/")
 SHAPENET_CATEGORIES = {
     "02691156": "Airplane",
     "02747177": "Chair",
-    # Uncomment to add more categories:
-    # "04379243": "Table",
-    # "02958343": "Car",
+    "04379243": "Table",
 }
 
 # Synset IDs for dataset download (used by prepare_dataset.py)

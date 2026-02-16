@@ -59,7 +59,7 @@ The ShapeNet dataset is hosted on HuggingFace, so you need to provide your acces
 
 All project-wide settings are centralized in **`config.py`**. This is the single source of truth for:
 
-- **ShapeNet Categories** - Define which object categories to work with (default: Airplane, Chair)
+- **ShapeNet Categories** - Define which object categories to work with (default: Airplane, Chair, Table)
 - **Data Paths** - Dataset directory (`./data/shapenet_v2_subset/`) and output directories
 - **Visualization Settings** - Sample sizes, figure dimensions, voxel downsampling, etc.
 - **File Formats** - References to 3D file formats (OBJ, BinVOX, JSON)
