@@ -506,6 +506,12 @@ class DeepSDFPreprocessor:
                 output_category_dir = output_dir / category_name / model_id
                 output_file = output_category_dir / f"sdf.{self.output_format}"
                 
+                # Skip if already processed
+                if output_file.exists():
+                    logger.debug(f"Skipping {model_id} (already exists)")
+                    total_meshes += 1
+                    continue
+                
                 try:
                     stats = self.preprocess_mesh(str(obj_file), str(output_file))
                     stats['category'] = category_name
