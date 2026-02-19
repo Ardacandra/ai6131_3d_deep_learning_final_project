@@ -179,10 +179,43 @@ class DeepSDFVisualizer:
         ax.set_ylim([-lim, lim])
         ax.set_zlim([-lim, lim])
     
+    def get_shapes_per_category(self, num_per_category: int = 2) -> List[int]:
+        """
+        Get shape indices with samples from each category.
+        
+        Args:
+            num_per_category: Number of shapes to sample from each category
+            
+        Returns:
+            List of shape indices covering all categories
+        """
+        from collections import defaultdict
+        
+        # Group shapes by category
+        category_shapes = defaultdict(list)
+        for idx in range(len(self.dataset)):
+            shape_data = self.dataset[idx]
+            shape_path = Path(shape_data["path"])
+            # Get category (parent of parent directory)
+            category_id = shape_path.parent.parent.name
+            category_shapes[category_id].append(idx)
+        
+        # Sample from each category
+        selected_indices = []
+        for category_id, indices in sorted(category_shapes.items()):
+            num_to_sample = min(num_per_category, len(indices))
+            sampled = np.random.choice(indices, num_to_sample, replace=False)
+            selected_indices.extend(sampled)
+            print(f"Category {category_id}: selected {num_to_sample} shapes")
+        
+        return selected_indices
+    
     def visualize_multiple(
         self,
         shape_indices: Optional[List[int]] = None,
         num_random: int = 5,
+        per_category: bool = False,
+        num_per_category: int = 2,
         resolution: int = DEEPSDF_EVALUATION["resolution"],
     ):
         """
@@ -190,16 +223,22 @@ class DeepSDFVisualizer:
         
         Args:
             shape_indices: List of specific shape indices to visualize.
-                          If None and num_random is set, randomly select shapes.
-            num_random: Number of random shapes to visualize (if shape_indices is None)
+                          If None, shapes are selected based on other parameters.
+            num_random: Number of random shapes to visualize (if shape_indices is None and per_category is False)
+            per_category: If True, select shapes from each category
+            num_per_category: Number of shapes per category (if per_category is True)
             resolution: Resolution for marching cubes
         """
         # Determine which shapes to visualize
         if shape_indices is None:
-            # Randomly select shapes
-            total_shapes = len(self.dataset)
-            num_random = min(num_random, total_shapes)
-            shape_indices = np.random.choice(total_shapes, num_random, replace=False)
+            if per_category:
+                # Select shapes from each category
+                shape_indices = self.get_shapes_per_category(num_per_category)
+            else:
+                # Randomly select shapes
+                total_shapes = len(self.dataset)
+                num_random = min(num_random, total_shapes)
+                shape_indices = np.random.choice(total_shapes, num_random, replace=False)
         
         print(f"\nVisualizing {len(shape_indices)} shapes...")
         
@@ -276,6 +315,17 @@ def main():
         help="Number of random shapes to visualize"
     )
     parser.add_argument(
+        "--per-category",
+        action="store_true",
+        help="Visualize shapes from each category instead of random selection"
+    )
+    parser.add_argument(
+        "--num-per-category",
+        type=int,
+        default=2,
+        help="Number of shapes to visualize per category (when --per-category is set)"
+    )
+    parser.add_argument(
         "--shape-indices",
         type=int,
         nargs="+",
@@ -304,6 +354,8 @@ def main():
         visualizer.visualize_multiple(
             shape_indices=None,
             num_random=args.num_shapes,
+            per_category=args.per_category,
+            num_per_category=args.num_per_category,
             resolution=args.resolution,
         )
 
