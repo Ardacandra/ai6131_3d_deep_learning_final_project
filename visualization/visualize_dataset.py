@@ -14,7 +14,7 @@ from typing import Dict, List, Tuple
 import struct
 
 # Import reusable utilities and configuration
-from shapenet_utils import load_obj, load_binvox, compute_voxel_statistics
+from src.shapenet_utils import load_obj, load_binvox, compute_voxel_statistics
 from config import (
     DATA_DIR,
     OUTPUT_DIR,
@@ -29,7 +29,7 @@ class ShapeNetExplorer:
     
     def __init__(self, data_dir: Path = None, output_dir: Path = None):
         self.data_dir = data_dir or DATA_DIR
-        self.output_dir = output_dir or OUTPUT_DIR
+        self.output_dir = output_dir or (OUTPUT_DIR / "viz")
         self.category_stats = {}
         
         # Create output directory if it doesn't exist

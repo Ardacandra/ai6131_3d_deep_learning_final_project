@@ -16,6 +16,8 @@ import argparse
 from typing import Tuple
 import logging
 
+from config import OUTPUT_DIR
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -316,13 +318,13 @@ def main():
         epilog="""
 Examples:
   # Visualize a specific mesh
-  python visualize_sdf.py data/shapenet_sdf/02747177/24884ef01e9a3832d2b12aa6a0f050b3/sdf.npz
+    python -m visualization.visualize_sdf data/shapenet_sdf/02747177/24884ef01e9a3832d2b12aa6a0f050b3/sdf.npz
   
   # Interactive viewing (requires plotly)
-  python visualize_sdf.py data/shapenet_sdf/02747177/24884ef01e9a3832d2b12aa6a0f050b3/sdf.npz --interactive
+    python -m visualization.visualize_sdf data/shapenet_sdf/02747177/24884ef01e9a3832d2b12aa6a0f050b3/sdf.npz --interactive
   
   # Save plots to disk
-  python visualize_sdf.py data/shapenet_sdf/02747177/24884ef01e9a3832d2b12aa6a0f050b3/sdf.npz --save ./output/
+    python -m visualization.visualize_sdf data/shapenet_sdf/02747177/24884ef01e9a3832d2b12aa6a0f050b3/sdf.npz --save ./out/viz/
         """
     )
     
@@ -340,7 +342,7 @@ Examples:
     parser.add_argument(
         '--save',
         type=str,
-        default=None,
+        default=str(OUTPUT_DIR / "viz"),
         help='Save plots to directory instead of displaying'
     )
     
@@ -359,9 +361,8 @@ Examples:
     print_statistics(pos_data, neg_data)
     
     # Create output directory if saving
-    if args.save:
-        output_dir = Path(args.save)
-        output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(args.save)
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     # Plot 1: SDF Distribution
     logger.info("Creating SDF distribution plots...")

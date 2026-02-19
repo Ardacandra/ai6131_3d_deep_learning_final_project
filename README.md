@@ -14,16 +14,12 @@ Before getting started, ensure you have the following installed:
 
 ### 1. Clone the Repository
 
-Download a copy of this project to your local machine:
-
 ```bash
 git clone https://github.com/Ardacandra/ai6131_3d_deep_learning_final_project.git
 cd ai6131_3d_deep_learning_final_project
 ```
 
 ### 2. Set Up the Conda Environment
-
-Create an isolated Python environment with all necessary dependencies. This ensures your project won't conflict with other Python packages on your system.
 
 ```bash
 # Create a new conda environment with Python 3.9
@@ -57,15 +53,7 @@ The ShapeNet dataset is hosted on HuggingFace, so you need to provide your acces
 
 ### 4. Project Configuration
 
-All project-wide settings are centralized in **`config.py`**. This is the single source of truth for:
-
-- **ShapeNet Categories** - Define which object categories to work with (default: Airplane, Chair, Table)
-- **Data Paths** - Dataset directory (`./data/shapenet_v2_subset/`) and output directories
-- **Visualization Settings** - Sample sizes, figure dimensions, voxel downsampling, etc.
-- **File Formats** - References to 3D file formats (OBJ, BinVOX, JSON)
-- **DeepSDF Preprocessing Settings** - All parameters for SDF generation (samples, variance, voting, etc.)
-
-To customize settings, simply edit `config.py` and the changes will be applied across all scripts automatically.
+All project-wide settings are centralized in **`config.py`**. To customize settings, simply edit `config.py` and the changes will be applied across all scripts automatically.
 
 ### 5. Download and Prepare the Dataset
 
@@ -88,15 +76,8 @@ cd ../..
 To understand how 3D objects are represented in the dataset and visualize sample models, run the visualization script:
 
 ```bash
-python visualize_dataset.py
+python -m visualization.visualize_dataset
 ```
-
-This script will:
-- **Scan the dataset** and display statistics (number of models per category)
-- **Show file formats** used in the dataset (OBJ mesh, BinVOX voxels, etc.)
-- **Generate mesh visualizations** showing sample models from each category as 3D point clouds with wireframe edges
-- **Generate voxel visualizations** showing the volumetric representation of models
-- **Save all visualizations** to the `./out/` directory as PNG files
 
 **Output files** (for each category in `SHAPENET_CATEGORIES`):
 - `visualization_<category>_models.png` - Mesh visualizations
@@ -210,17 +191,17 @@ python -m src.deepsdf.evaluate \
 **Visualize 5 random shapes:**
 
 ```bash
-python visualize_deepsdf.py
+python -m visualization.visualize_deepsdf
 ```
 
 **Visualize with custom parameters:**
 
 ```bash
-python visualize_deepsdf.py \
+python -m visualization.visualize_deepsdf \
    --checkpoint deepsdf_checkpoints/deepsdf_latest.pth \
    --num-shapes 10 \
    --resolution 256 \
-   --output-dir ./out/deepsdf_visualizations/
+   --output-dir ./out/viz/
 ```
 
 ## References

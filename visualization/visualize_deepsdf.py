@@ -38,7 +38,7 @@ class DeepSDFVisualizer:
         self.checkpoint_path = checkpoint_path
         self.data_root = data_root
         self.gt_data_root = Path(gt_data_root)
-        self.output_dir = output_dir or OUTPUT_DIR
+        self.output_dir = output_dir or (OUTPUT_DIR / "viz")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.device = device
         
@@ -299,7 +299,7 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=None,
+        default=str(OUTPUT_DIR / "viz"),
         help="Output directory for visualizations"
     )
     parser.add_argument(
@@ -340,7 +340,7 @@ def main():
         checkpoint_path=args.checkpoint,
         data_root=args.data_root,
         gt_data_root=args.gt_data_root,
-        output_dir=Path(args.output_dir) if args.output_dir else None,
+        output_dir=Path(args.output_dir),
         device=args.device,
     )
     
