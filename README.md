@@ -143,7 +143,7 @@ python -m src.deepsdf.train ./data/shapenet_sdf \
    --hidden-size 256 \
    --epochs 50 \
    --batch-points 2048 \
-   --save-dir ./deepsdf_checkpoints
+   --save-dir ./out/deepsdf
 ```
 
 ## DeepSDF Evaluation
@@ -176,7 +176,7 @@ python -m src.deepsdf.evaluate
 
 ```bash
 python -m src.deepsdf.evaluate \
-   --checkpoint deepsdf_checkpoints/deepsdf_latest.pth \
+   --checkpoint out/deepsdf/deepsdf_latest.pth \
    --data-root data/shapenet_sdf \
    --gt-data-root data/shapenet_v2_subset \
    --device cuda \
@@ -198,7 +198,7 @@ python -m visualization.visualize_deepsdf
 
 ```bash
 python -m visualization.visualize_deepsdf \
-   --checkpoint deepsdf_checkpoints/deepsdf_latest.pth \
+   --checkpoint out/deepsdf/deepsdf_latest.pth \
    --num-shapes 10 \
    --resolution 256 \
    --output-dir ./out/viz/

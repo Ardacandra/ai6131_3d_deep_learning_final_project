@@ -80,7 +80,7 @@ DEEPSDF_TRAINING = {
     "latent_size": 64,
     "hidden_size": 256,
     "lr": 1e-4,
-    "epochs": 100,
+    "epochs": 5,
     "batch_points": 2048,
     "samples_per_scene": 2048,
     "scenes_per_batch": 1,
@@ -92,15 +92,15 @@ DEEPSDF_TRAINING = {
     "code_init_stddev": 1.0,
     "grad_clip_norm": None,
     "log_frequency": 10,
-    "snapshot_frequency": 10,
+    "snapshot_frequency": 1,
     "additional_snapshots": [],
     "lr_schedules": None,
-    "save_dir": Path("./deepsdf_checkpoints"),
+    "save_dir": Path("./out/deepsdf"),
 }
 
 # DeepSDF evaluation defaults
 DEEPSDF_EVALUATION = {
-    "checkpoint": Path("./deepsdf_checkpoints/deepsdf_latest.pth"),
+    "checkpoint": Path("./out/deepsdf/deepsdf_latest.pth"),
     "data_root": Path("./data/shapenet_sdf"),
     "gt_data_root": Path("./data/shapenet_v2_subset"),
     "resolution": 128,  # Grid resolution for marching cubes

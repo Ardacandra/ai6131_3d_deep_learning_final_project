@@ -7,6 +7,7 @@ import time
 import numpy as np
 import torch
 from .dataset import DeepSDFDataset
+from .logging_utils import setup_training_logger
 from .model import DeepSDFDecoder
 from config import DEEPSDF_TRAINING
 
@@ -131,6 +132,7 @@ def train_autodecoder(
 
     save_path = Path(save_dir)
     save_path.mkdir(parents=True, exist_ok=True)
+    logger, log_file = setup_training_logger(save_path)
 
     samples_per_scene = batch_points or DEEPSDF_TRAINING["samples_per_scene"]
     scenes_per_batch = DEEPSDF_TRAINING["scenes_per_batch"]
@@ -149,6 +151,19 @@ def train_autodecoder(
     loss_log = []
     lr_log = []
     timing_log = []
+
+    logger.info("Starting DeepSDF training")
+    logger.info("Device: %s", device)
+    logger.info("Data root: %s", Path(data_root))
+    logger.info("Artifacts directory: %s", save_path)
+    logger.info(
+        "Hyperparameters | epochs=%d latent_size=%d hidden_size=%d lr=%.6f batch_points=%d",
+        epochs,
+        latent_size,
+        hidden_size,
+        lr,
+        batch_points,
+    )
 
     for epoch in range(1, epochs + 1):
         start = time.time()
@@ -223,14 +238,22 @@ def train_autodecoder(
             total_loss += batch_loss
             count += 1
 
-            if (count % 10) == 0:
-                print(
-                    f"Epoch {epoch} | batch {count} | loss: {total_loss / count:.6f}"
+            if (count % log_frequency) == 0:
+                logger.info(
+                    "Epoch %d | batch %d | running_loss=%.6f",
+                    epoch,
+                    count,
+                    total_loss / count,
                 )
 
         epoch_time = time.time() - start
         avg_loss = total_loss / max(1, count)
-        print(f"Epoch {epoch} completed in {epoch_time:.1f}s | avg loss: {avg_loss:.6f}")
+        logger.info(
+            "Epoch %d completed | duration=%.1fs | avg_loss=%.6f",
+            epoch,
+            epoch_time,
+            avg_loss,
+        )
 
         loss_log.append(avg_loss)
         lr_log.append([schedule.get_learning_rate(epoch) for schedule in lr_schedules])
@@ -250,16 +273,19 @@ def train_autodecoder(
 
         if epoch % snapshot_frequency == 0 or epoch in additional_snapshots:
             torch.save(ckpt, save_path / f"deepsdf_epoch_{epoch}.pth")
+            logger.info("Saved checkpoint: %s", save_path / f"deepsdf_epoch_{epoch}.pth")
 
-        if epoch % log_frequency == 0:
-            torch.save(ckpt, save_path / "deepsdf_latest.pth")
+        torch.save(ckpt, save_path / "deepsdf_latest.pth")
+        logger.info("Updated latest checkpoint: %s", save_path / "deepsdf_latest.pth")
 
     # Save final metadata
     meta = {"num_shapes": num_shapes, "latent_size": latent_size, "hidden_size": hidden_size}
     with open(save_path / "meta.json", "w") as f:
         json.dump(meta, f)
 
-    print("Training finished. Checkpoints saved to", save_path)
+    logger.info("Saved metadata: %s", save_path / "meta.json")
+    logger.info("Training finished. Checkpoints saved to %s", save_path)
+    logger.info("Training log file: %s", log_file)
 
 
 def main():

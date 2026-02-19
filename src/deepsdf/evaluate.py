@@ -29,12 +29,35 @@ from .model import DeepSDFDecoder
 from config import DEEPSDF_TRAINING, DEEPSDF_EVALUATION
 
 
+def _resolve_checkpoint_path(checkpoint_path: str) -> Path:
+    path = Path(checkpoint_path)
+    if path.exists():
+        return path
+
+    parent = path.parent
+    candidates = sorted(
+        parent.glob("deepsdf_epoch_*.pth"),
+        key=lambda p: int(p.stem.split("_")[-1]) if p.stem.split("_")[-1].isdigit() else -1,
+    )
+    if candidates:
+        fallback = candidates[-1]
+        print(
+            f"Checkpoint not found: {path}. Falling back to latest epoch checkpoint: {fallback}"
+        )
+        return fallback
+
+    raise FileNotFoundError(
+        f"Checkpoint not found: {path}. No fallback checkpoint matching deepsdf_epoch_*.pth in {parent}"
+    )
+
+
 def load_checkpoint(checkpoint_path: str, device: str = "cpu") -> Tuple[DeepSDFDecoder, torch.nn.Embedding, Dict]:
     """Load trained DeepSDF model and latent codes from checkpoint."""
-    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    resolved_checkpoint_path = _resolve_checkpoint_path(checkpoint_path)
+    checkpoint = torch.load(resolved_checkpoint_path, map_location=device, weights_only=False)
     
     # Load metadata
-    meta_path = Path(checkpoint_path).parent / "meta.json"
+    meta_path = resolved_checkpoint_path.parent / "meta.json"
     if meta_path.exists():
         with open(meta_path, 'r') as f:
             meta = json.load(f)
