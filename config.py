@@ -107,6 +107,15 @@ DEEPSDF_TRAINING = {
     "save_dir": Path("./out/deepsdf"),
 }
 
+# DeepSDF + Category-Aware Contrastive Learning (CACL) training defaults
+DEEPSDF_CACL_TRAINING = {
+    **DEEPSDF_TRAINING,
+    "triplet_margin": 0.2,
+    "triplet_lambda": 0.1,
+    "triplets_per_batch": 16,
+    "save_dir": Path("./out/deepsdf_cacl"),
+}
+
 # DeepSDF evaluation defaults
 DEEPSDF_EVALUATION = {
     "checkpoint": Path("./out/deepsdf/deepsdf_latest.pth"),
@@ -118,4 +127,11 @@ DEEPSDF_EVALUATION = {
     "max_shapes": None,  # Maximum number of shapes to evaluate (None for all)
     "output_file": Path("./out/deepsdf/deepsdf_evaluation_results.json"),  # Output file for detailed results
     "percentile": 90.0,  # Percentile for mesh accuracy metric
+}
+
+# DeepSDF + CACL evaluation defaults
+DEEPSDF_CACL_EVALUATION = {
+    **DEEPSDF_EVALUATION,
+    "checkpoint": Path("./out/deepsdf_cacl/deepsdf_cacl_latest.pth"),
+    "output_file": Path("./out/deepsdf_cacl/deepsdf_cacl_evaluation_results.json"),
 }

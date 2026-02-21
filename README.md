@@ -147,6 +147,47 @@ python -m src.deepsdf.train ./data/shapenet_sdf \
    --save-dir ./out/deepsdf
 ```
 
+## DeepSDF + CACL Training
+
+This variant keeps the same DeepSDF autodecoder architecture and adds a category-aware triplet loss on latent codes:
+
+- $\mathcal{L}_{tri}=\max(0, \|z_a-z_p\|_2^2 - \|z_a-z_n\|_2^2 + m)$
+- $\mathcal{L}=\mathcal{L}_{sdf}+\lambda_{tri}\mathcal{L}_{tri}$
+
+Run with defaults from `config.py`:
+
+```bash
+python -m src.deepsdf_cacl.train
+```
+
+Example with explicit CACL hyperparameters:
+
+```bash
+python -m src.deepsdf_cacl.train ./data/shapenet_sdf \
+   --triplet-margin 0.2 \
+   --triplet-lambda 0.1 \
+   --triplets-per-batch 16 \
+   --save-dir ./out/deepsdf_cacl
+```
+
+### DeepSDF + CACL Evaluation
+
+Evaluate CACL checkpoints with the same reconstruction metrics:
+
+```bash
+python -m src.deepsdf_cacl.evaluate
+```
+
+Example:
+
+```bash
+python -m src.deepsdf_cacl.evaluate \
+   --checkpoint out/deepsdf_cacl/deepsdf_cacl_latest.pth \
+   --data-root data/shapenet_sdf \
+   --gt-data-root data/shapenet_v2_subset \
+   --output out/deepsdf_cacl/deepsdf_cacl_evaluation_results.json
+```
+
 ## DeepSDF Evaluation
 
 ### Overview
