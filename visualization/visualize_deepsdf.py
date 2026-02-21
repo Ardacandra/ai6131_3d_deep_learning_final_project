@@ -19,7 +19,12 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import trimesh
 
-from src.deepsdf.evaluate import load_checkpoint, sdf_to_mesh, load_ground_truth_mesh
+from src.deepsdf.evaluate import (
+    load_checkpoint,
+    sdf_to_mesh,
+    load_ground_truth_mesh,
+    _load_selected_shape_paths,
+)
 from src.deepsdf.dataset import DeepSDFDataset
 from config import DEEPSDF_EVALUATION, OUTPUT_DIR
 
@@ -32,6 +37,7 @@ class DeepSDFVisualizer:
         checkpoint_path: str,
         data_root: str,
         gt_data_root: str,
+        samples_manifest: Optional[str] = None,
         output_dir: Path = None,
         device: str = "cuda",
     ):
@@ -46,17 +52,27 @@ class DeepSDFVisualizer:
         self.decoder, self.latent_embeddings, self.meta = load_checkpoint(checkpoint_path, device=device)
         
         print(f"Loading dataset from {data_root}")
-        self.dataset = DeepSDFDataset(data_root)
+        selected_shape_paths = _load_selected_shape_paths(
+            checkpoint_path=checkpoint_path,
+            data_root=data_root,
+            samples_manifest_path=samples_manifest,
+        )
+        if selected_shape_paths is not None:
+            self.shape_paths = selected_shape_paths
+            print(f"Using selected samples manifest with {len(self.shape_paths)} shapes")
+        else:
+            self.dataset = DeepSDFDataset(data_root)
+            self.shape_paths = self.dataset.get_shape_paths()
+            print(f"Selected samples manifest not found; using full dataset ({len(self.shape_paths)} shapes)")
         
         print(f"Output directory: {self.output_dir.resolve()}")
     
     def get_shape_info(self, shape_index: int) -> Tuple[str, int]:
         """Get shape path and latent code for a given index."""
-        if shape_index >= len(self.dataset):
-            raise IndexError(f"Shape index {shape_index} out of range (dataset has {len(self.dataset)} shapes)")
-        
-        shape_data = self.dataset[shape_index]
-        shape_path = Path(shape_data["path"])
+        if shape_index >= len(self.shape_paths):
+            raise IndexError(f"Shape index {shape_index} out of range (dataset has {len(self.shape_paths)} shapes)")
+
+        shape_path = Path(self.shape_paths[shape_index])
         return shape_path, shape_index
     
     def visualize_shape(
@@ -193,9 +209,8 @@ class DeepSDFVisualizer:
         
         # Group shapes by category
         category_shapes = defaultdict(list)
-        for idx in range(len(self.dataset)):
-            shape_data = self.dataset[idx]
-            shape_path = Path(shape_data["path"])
+        for idx in range(len(self.shape_paths)):
+            shape_path = Path(self.shape_paths[idx])
             # Get category (parent of parent directory)
             category_id = shape_path.parent.parent.name
             category_shapes[category_id].append(idx)
@@ -236,7 +251,7 @@ class DeepSDFVisualizer:
                 shape_indices = self.get_shapes_per_category(num_per_category)
             else:
                 # Randomly select shapes
-                total_shapes = len(self.dataset)
+                total_shapes = len(self.shape_paths)
                 num_random = min(num_random, total_shapes)
                 shape_indices = np.random.choice(total_shapes, num_random, replace=False)
         
@@ -291,6 +306,12 @@ def main():
         help="Root directory for ground truth meshes"
     )
     parser.add_argument(
+        "--samples-manifest",
+        type=str,
+        default=None,
+        help="Path to selected_samples.json. Defaults to checkpoint directory if present",
+    )
+    parser.add_argument(
         "--device",
         type=str,
         default="cuda",
@@ -340,6 +361,7 @@ def main():
         checkpoint_path=args.checkpoint,
         data_root=args.data_root,
         gt_data_root=args.gt_data_root,
+        samples_manifest=args.samples_manifest,
         output_dir=Path(args.output_dir),
         device=args.device,
     )

@@ -29,6 +29,29 @@ from .model import DeepSDFDecoder
 from config import DEEPSDF_TRAINING, DEEPSDF_EVALUATION
 
 
+def _load_selected_shape_paths(
+    checkpoint_path: str,
+    data_root: str,
+    samples_manifest_path: Optional[str] = None,
+) -> Optional[List[Path]]:
+    if samples_manifest_path is not None:
+        manifest_path = Path(samples_manifest_path)
+    else:
+        resolved_checkpoint_path = _resolve_checkpoint_path(checkpoint_path)
+        manifest_path = resolved_checkpoint_path.parent / "selected_samples.json"
+
+    if not manifest_path.exists():
+        return None
+
+    with open(manifest_path, "r") as f:
+        manifest = json.load(f)
+
+    shapes = manifest.get("shapes", [])
+    root = Path(data_root)
+    selected_paths = [root / shape["relative_path"] for shape in shapes]
+    return selected_paths
+
+
 def _resolve_checkpoint_path(checkpoint_path: str) -> Path:
     path = Path(checkpoint_path)
     if path.exists():
@@ -353,6 +376,7 @@ def evaluate_dataset(
     checkpoint_path: str,
     data_root: str,
     gt_data_root: str,
+    samples_manifest_path: Optional[str] = None,
     device: str = "cpu",
     resolution: int = 128,
     num_sample_points: int = 10000,
@@ -379,9 +403,21 @@ def evaluate_dataset(
     decoder, latent_embeddings, meta = load_checkpoint(checkpoint_path, device=device)
     
     print(f"Loading dataset from {data_root}")
-    dataset = DeepSDFDataset(data_root)
-    
-    num_shapes = len(dataset)
+    selected_shape_paths = _load_selected_shape_paths(
+        checkpoint_path=checkpoint_path,
+        data_root=data_root,
+        samples_manifest_path=samples_manifest_path,
+    )
+
+    if selected_shape_paths is not None:
+        shape_paths = selected_shape_paths
+        print(f"Using selected samples manifest with {len(shape_paths)} shapes")
+    else:
+        dataset = DeepSDFDataset(data_root)
+        shape_paths = dataset.get_shape_paths()
+        print(f"Selected samples manifest not found; using full dataset ({len(shape_paths)} shapes)")
+
+    num_shapes = len(shape_paths)
     if max_shapes is not None:
         num_shapes = min(num_shapes, max_shapes)
     
@@ -396,8 +432,7 @@ def evaluate_dataset(
     start_time = time.time()
     
     for idx in range(num_shapes):
-        shape_data = dataset[idx]
-        shape_path = Path(shape_data["path"])
+        shape_path = shape_paths[idx]
         
         print(f"[{idx+1}/{num_shapes}] Evaluating {shape_path.name} from {shape_path.parent.name}/{shape_path.parent.parent.name}")
         
@@ -537,6 +572,12 @@ def main():
         help="Root directory for ground truth meshes"
     )
     parser.add_argument(
+        "--samples-manifest",
+        type=str,
+        default=None,
+        help="Path to selected_samples.json. Defaults to checkpoint directory if present",
+    )
+    parser.add_argument(
         "--device",
         type=str,
         default="cuda" if torch.cuda.is_available() else "cpu",
@@ -573,6 +614,7 @@ def main():
         checkpoint_path=args.checkpoint,
         data_root=args.data_root,
         gt_data_root=args.gt_data_root,
+        samples_manifest_path=args.samples_manifest,
         device=args.device,
         resolution=args.resolution,
         num_sample_points=args.num_sample_points,
