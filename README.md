@@ -124,7 +124,8 @@ The training loop follows the original DeepSDF autodecoder procedure:
 - **Latent codes per shape** - an embedding table is optimized alongside the decoder
 - **Scene-wise sampling** - sample `samples_per_scene` points per shape
 - **Clamping** - clamp both targets and predictions to `clamp_dist`
-- **Code regularization** - L2 penalty on latent codes with warm-up
+- **Reconstruction loss** - clamped L1 (MAE) between predicted and ground-truth SDF values
+- **Code regularization** - latent code norm penalty with warm-up
 - **Split batches** - optional `batch_split` to fit memory
 
 ### Running Training
