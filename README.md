@@ -79,10 +79,6 @@ To understand how 3D objects are represented in the dataset and visualize sample
 python -m visualization.visualize_dataset
 ```
 
-**Output files** (for each category in `SHAPENET_CATEGORIES`):
-- `visualization_<category>_models.png` - Mesh visualizations
-- `visualization_<category>_voxels.png` - Voxel grid visualizations
-
 ## Data Preprocessing for DeepSDF
 
 To train a DeepSDF model for 3D shape reconstruction, preprocess the ShapeNet dataset into signed distance fields (SDF).
@@ -97,16 +93,9 @@ The preprocessing pipeline implements the methodology from the DeepSDF paper (Pa
 - **SDF Computation** - Compute signed distance values using k-nearest neighbor voting (11 neighbors)
 - **Output** - Save as NPZ format with separate positive/negative samples
 
-**All preprocessing parameters are configured in `config.py`** under `DEEPSDF_SETTINGS`. Default values:
-- `num_spatial_samples`: 500,000
-- `surface_variance`: 0.005
-- `num_votes`: 11 (k-NN neighbors for sign voting)
-- `num_views`: 100 (virtual camera viewpoints)
-- `output_format`: "npz"
+**All preprocessing parameters are configured in `config.py`** under `DEEPSDF_SETTINGS`.
 
 ### Running the Preprocessing
-
-**Basic usage - process all categories (uses defaults from `config.py`):**
 
 ```bash
 python prepare_deepsdf.py
@@ -152,6 +141,7 @@ python -m src.deepsdf.train ./data/shapenet_sdf \
 This variant keeps the same DeepSDF autodecoder architecture and adds a category-aware triplet loss on latent codes:
 
 - $\mathcal{L}_{tri}=\max(0, \|z_a-z_p\|_2^2 - \|z_a-z_n\|_2^2 + m)$
+
 - $\mathcal{L}=\mathcal{L}_{sdf}+\lambda_{tri}\mathcal{L}_{tri}$
 
 Run with defaults from `config.py`:
@@ -168,24 +158,6 @@ python -m src.deepsdf_cacl.train ./data/shapenet_sdf \
    --triplet-lambda 0.1 \
    --triplets-per-batch 16 \
    --save-dir ./out/deepsdf_cacl
-```
-
-### DeepSDF + CACL Evaluation
-
-Evaluate CACL checkpoints with the same reconstruction metrics:
-
-```bash
-python -m src.deepsdf_cacl.evaluate
-```
-
-Example:
-
-```bash
-python -m src.deepsdf_cacl.evaluate \
-   --checkpoint out/deepsdf_cacl/deepsdf_cacl_latest.pth \
-   --data-root data/shapenet_sdf \
-   --gt-data-root data/shapenet_v2_subset \
-   --output out/deepsdf_cacl/deepsdf_cacl_evaluation_results.json
 ```
 
 ## DeepSDF Evaluation
@@ -212,6 +184,10 @@ The evaluation script measures the quality of the trained DeepSDF model by compa
 
 ```bash
 python -m src.deepsdf.evaluate
+```
+
+```bash
+python -m src.deepsdf_cacl.evaluate
 ```
 
 **Full parameter control:**
