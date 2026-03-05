@@ -140,9 +140,8 @@ python -m src.deepsdf.train ./data/shapenet_sdf \
 
 This variant keeps the same DeepSDF autodecoder architecture and adds a category-aware triplet loss on latent codes:
 
-- $\mathcal{L}_{tri}=\max(0, \|z_a-z_p\|_2^2 - \|z_a-z_n\|_2^2 + m)$
-
-- $\mathcal{L}=\mathcal{L}_{sdf}+\lambda_{tri}\mathcal{L}_{tri}$
+* $L_{tri} = \max(0, |z_a - z_p|_2^2 - |z_a - z_n|_2^2 + m)$
+* $\mathcal{L} = \mathcal{L}_{sdf} + \lambda_{tri}\mathcal{L}_{tri}$
 
 Run with defaults from `config.py`:
 
