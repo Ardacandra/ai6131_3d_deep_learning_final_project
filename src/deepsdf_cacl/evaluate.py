@@ -5,6 +5,8 @@ Computes:
 - Chamfer Distance (Mean and Median)
 - Earth Mover's Distance (Mean and Median)
 - Mesh accuracy (minimum distance d such that 90% of generated points are within d of ground truth mesh)
+- Latent manifold Silhouette Score
+- Latent manifold Davies-Bouldin Index
 """
 
 import argparse
@@ -20,6 +22,8 @@ from src.deepsdf.dataset import DeepSDFDataset
 from src.deepsdf.model import DeepSDFDecoder
 from src.deepsdf.evaluate import (
     _load_selected_shape_paths,
+    _shape_category_id,
+    compute_latent_manifold_metrics,
     evaluate_shape,
 )
 from config import DEEPSDF_CACL_TRAINING, DEEPSDF_CACL_EVALUATION
@@ -123,6 +127,8 @@ def evaluate_dataset(
     chamfer_medians = []
     emds = []
     accuracies = []
+    latent_vectors = []
+    category_labels = []
 
     start_time = time.time()
 
@@ -135,6 +141,8 @@ def evaluate_dataset(
         )
 
         latent_code = latent_embeddings.weight[idx].unsqueeze(0)
+        latent_vectors.append(latent_code.squeeze(0).detach().cpu().numpy())
+        category_labels.append(_shape_category_id(shape_path) or "unknown")
 
         metrics = evaluate_shape(
             decoder=decoder,
@@ -171,6 +179,11 @@ def evaluate_dataset(
     elapsed = time.time() - start_time
     print(f"\nEvaluation completed in {elapsed:.2f}s")
 
+    latent_metric_values = compute_latent_manifold_metrics(
+        latent_codes=np.stack(latent_vectors, axis=0) if latent_vectors else np.empty((0, 0)),
+        category_labels=category_labels,
+    )
+
     if len(results) > 0:
         aggregate_metrics = {
             "num_shapes_evaluated": len(results),
@@ -184,6 +197,7 @@ def evaluate_dataset(
             "mesh_accuracy_90_mean": float(np.mean(accuracies)),
             "mesh_accuracy_90_median": float(np.median(accuracies)),
             "evaluation_time_seconds": elapsed,
+            **latent_metric_values,
             "triplet_margin": meta.get("triplet_margin"),
             "triplet_lambda": meta.get("triplet_lambda"),
         }
@@ -200,6 +214,7 @@ def evaluate_dataset(
             "mesh_accuracy_90_mean": None,
             "mesh_accuracy_90_median": None,
             "evaluation_time_seconds": elapsed,
+            **latent_metric_values,
             "triplet_margin": meta.get("triplet_margin"),
             "triplet_lambda": meta.get("triplet_lambda"),
         }
@@ -228,6 +243,17 @@ def evaluate_dataset(
         print("\nMesh Accuracy @ 90%:")
         print(f"  Mean:   {aggregate_metrics['mesh_accuracy_90_mean']:.6f}")
         print(f"  Median: {aggregate_metrics['mesh_accuracy_90_median']:.6f}")
+
+        print("\nLatent Manifold Metrics:")
+        if aggregate_metrics["latent_silhouette_score"] is not None:
+            print(f"  Silhouette Score:      {aggregate_metrics['latent_silhouette_score']:.6f}")
+        else:
+            print("  Silhouette Score:      N/A")
+
+        if aggregate_metrics["latent_davies_bouldin_index"] is not None:
+            print(f"  Davies-Bouldin Index:  {aggregate_metrics['latent_davies_bouldin_index']:.6f}")
+        else:
+            print("  Davies-Bouldin Index:  N/A")
     else:
         print("\nNo metrics available (no shapes were successfully evaluated)")
 

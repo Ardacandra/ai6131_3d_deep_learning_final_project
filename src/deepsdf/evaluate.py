@@ -5,6 +5,8 @@ Computes the following metrics:
 - Chamfer Distance (Mean and Median)
 - Earth Mover's Distance (Mean and Median)
 - Mesh accuracy (minimum distance d such that 90% of generated points are within d of the ground truth mesh)
+- Latent manifold Silhouette Score
+- Latent manifold Davies-Bouldin Index
 """
 
 import argparse
@@ -18,6 +20,7 @@ import torch
 import trimesh
 from scipy.spatial import cKDTree
 from scipy.stats import wasserstein_distance
+from sklearn.metrics import davies_bouldin_score, silhouette_score
 try:
     import skimage
     from skimage import measure
@@ -313,6 +316,69 @@ def mesh_accuracy(pred_pts: np.ndarray, gt_pts: np.ndarray, percentile: float = 
     return accuracy
 
 
+def _shape_category_id(shape_path: Path) -> Optional[str]:
+    """Extract category ID from an SDF shape path."""
+    # Expected shape path: <root>/<category_id>/<model_id>/sdf.{npz,npy}
+    try:
+        return shape_path.parent.parent.name
+    except IndexError:
+        return None
+
+
+def compute_latent_manifold_metrics(
+    latent_codes: np.ndarray,
+    category_labels: List[str],
+) -> Dict[str, Optional[float]]:
+    """
+    Compute latent manifold structure metrics from latent vectors and category labels.
+
+    Returns:
+        Dict with silhouette score and Davies-Bouldin index.
+    """
+    result: Dict[str, Optional[float]] = {
+        "latent_silhouette_score": None,
+        "latent_davies_bouldin_index": None,
+    }
+
+    if latent_codes.size == 0 or len(category_labels) == 0:
+        return result
+
+    if latent_codes.shape[0] != len(category_labels):
+        print(
+            "Warning: cannot compute latent manifold metrics due to mismatched "
+            f"sample counts (latents={latent_codes.shape[0]}, labels={len(category_labels)})."
+        )
+        return result
+
+    # Encode category strings into cluster IDs.
+    _, label_ids = np.unique(np.asarray(category_labels), return_inverse=True)
+    num_clusters = int(np.unique(label_ids).shape[0])
+    num_samples = int(latent_codes.shape[0])
+
+    if num_samples < 2 or num_clusters < 2:
+        print(
+            "Warning: latent manifold metrics require at least 2 samples and 2 categories "
+            f"(got samples={num_samples}, categories={num_clusters})."
+        )
+        return result
+
+    try:
+        result["latent_silhouette_score"] = float(
+            silhouette_score(latent_codes, label_ids, metric="euclidean")
+        )
+    except ValueError as e:
+        print(f"Warning: failed to compute Silhouette Score: {e}")
+
+    try:
+        result["latent_davies_bouldin_index"] = float(
+            davies_bouldin_score(latent_codes, label_ids)
+        )
+    except ValueError as e:
+        print(f"Warning: failed to compute Davies-Bouldin Index: {e}")
+
+    return result
+
+
 def evaluate_shape(
     decoder: DeepSDFDecoder,
     latent_code: torch.Tensor,
@@ -428,6 +494,8 @@ def evaluate_dataset(
     chamfer_medians = []
     emds = []
     accuracies = []
+    latent_vectors = []
+    category_labels = []
     
     start_time = time.time()
     
@@ -438,6 +506,8 @@ def evaluate_dataset(
         
         # Get latent code
         latent_code = latent_embeddings.weight[idx].unsqueeze(0)
+        latent_vectors.append(latent_code.squeeze(0).detach().cpu().numpy())
+        category_labels.append(_shape_category_id(shape_path) or "unknown")
         
         # Evaluate shape
         metrics = evaluate_shape(
@@ -474,6 +544,11 @@ def evaluate_dataset(
     
     elapsed = time.time() - start_time
     print(f"\nEvaluation completed in {elapsed:.2f}s")
+
+    latent_metric_values = compute_latent_manifold_metrics(
+        latent_codes=np.stack(latent_vectors, axis=0) if latent_vectors else np.empty((0, 0)),
+        category_labels=category_labels,
+    )
     
     # Compute aggregate metrics (handle empty lists gracefully)
     if len(results) > 0:
@@ -489,6 +564,7 @@ def evaluate_dataset(
             "mesh_accuracy_90_mean": float(np.mean(accuracies)),
             "mesh_accuracy_90_median": float(np.median(accuracies)),
             "evaluation_time_seconds": elapsed,
+            **latent_metric_values,
         }
     else:
         # No shapes were successfully evaluated
@@ -504,6 +580,7 @@ def evaluate_dataset(
             "mesh_accuracy_90_mean": None,
             "mesh_accuracy_90_median": None,
             "evaluation_time_seconds": elapsed,
+            **latent_metric_values,
         }
     
     # Print summary
@@ -524,6 +601,17 @@ def evaluate_dataset(
         print(f"\nMesh Accuracy @ 90%:")
         print(f"  Mean:   {aggregate_metrics['mesh_accuracy_90_mean']:.6f}")
         print(f"  Median: {aggregate_metrics['mesh_accuracy_90_median']:.6f}")
+
+        print(f"\nLatent Manifold Metrics:")
+        if aggregate_metrics["latent_silhouette_score"] is not None:
+            print(f"  Silhouette Score:      {aggregate_metrics['latent_silhouette_score']:.6f}")
+        else:
+            print("  Silhouette Score:      N/A")
+
+        if aggregate_metrics["latent_davies_bouldin_index"] is not None:
+            print(f"  Davies-Bouldin Index:  {aggregate_metrics['latent_davies_bouldin_index']:.6f}")
+        else:
+            print("  Davies-Bouldin Index:  N/A")
     else:
         print(f"\nNo metrics available (no shapes were successfully evaluated)")
     print("=" * 60)

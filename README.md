@@ -163,7 +163,7 @@ python -m src.deepsdf_cacl.train ./data/shapenet_sdf \
 
 ### Overview
 
-The evaluation script measures the quality of the trained DeepSDF model by comparing reconstructed meshes against ground truth meshes from the dataset. Three key metrics are computed:
+The evaluation script measures the quality of the trained DeepSDF model by comparing reconstructed meshes against ground truth meshes from the dataset. Five key metrics are computed:
 
 1. **Chamfer Distance (Mean and Median)**
    - Bidirectional point-to-point distance between predicted and ground truth meshes
@@ -176,6 +176,14 @@ The evaluation script measures the quality of the trained DeepSDF model by compa
 3. **Mesh Accuracy @ 90%**
    - The minimum distance d such that 90% of generated points are within d of the ground truth
    - Measures reconstruction precision
+
+4. **Silhouette Score (Latent Manifold)**
+   - Measures how tightly latent codes cluster within category while separating from other categories
+   - Higher values indicate better manifold separation
+
+5. **Davies-Bouldin Index (Latent Manifold)**
+   - Measures average similarity between each cluster and its most similar neighboring cluster
+   - Lower values indicate better-separated latent categories
 
 ### Running Evaluation
 
