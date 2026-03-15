@@ -50,6 +50,8 @@ DEEPSDF_SETTINGS = {
     "num_votes": 11,                # Number of neighbors for SDF voting
     "num_views": 100,               # Number of virtual camera views
     "bounding_cube_dim": 2.0,       # Bounding cube dimension
+    "objects_per_category": 50,     # Max objects to preprocess per category (None = all)
+    "random_seed": 42,              # Seed for reproducible object selection
 }
 
 # DeepSDF dataset defaults
@@ -80,7 +82,6 @@ DEEPSDF_TRAINING = {
     "hidden_size": 512,
     "lr": 5e-4,
     "random_seed": 42,
-    "objects_per_category": 50,
     "epochs": 2000,
     "batch_points": 16384,
     "samples_per_scene": 2048,

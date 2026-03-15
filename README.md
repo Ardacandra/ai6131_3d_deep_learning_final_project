@@ -81,19 +81,14 @@ python -m visualization.visualize_dataset
 
 ## Data Preprocessing for DeepSDF
 
-To train a DeepSDF model for 3D shape reconstruction, preprocess the ShapeNet dataset into signed distance fields (SDF).
-
-### Overview
-
 The preprocessing pipeline implements the methodology from the DeepSDF paper (Park et al., CVPR 2019):
 
+- **Object Selection** - Iterate candidate meshes per category until `objects_per_category` successful preprocesses are reached (default: 50), skipping failed meshes
 - **Mesh Normalization** - Scale each mesh to a unit sphere
 - **Surface Sampling** - Sample 500,000 spatial points with 47% density near the surface
 - **Proper Orientation** - Handle non-watertight meshes using visible surface sampling with virtual cameras (100 viewpoints)
 - **SDF Computation** - Compute signed distance values using k-nearest neighbor voting (11 neighbors)
 - **Output** - Save as NPZ format with separate positive/negative samples
-
-**All preprocessing parameters are configured in `config.py`** under `DEEPSDF_SETTINGS`.
 
 ### Running the Preprocessing
 

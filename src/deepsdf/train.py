@@ -97,7 +97,6 @@ def train_autodecoder(
     hidden_size=DEEPSDF_TRAINING["hidden_size"],
     lr=DEEPSDF_TRAINING["lr"],
     random_seed=DEEPSDF_TRAINING["random_seed"],
-    objects_per_category=DEEPSDF_TRAINING["objects_per_category"],
     epochs=DEEPSDF_TRAINING["epochs"],
     batch_points=DEEPSDF_TRAINING["batch_points"],
     device=None,
@@ -111,11 +110,7 @@ def train_autodecoder(
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(random_seed)
 
-    dataset = DeepSDFDataset(
-        data_root,
-        objects_per_category=objects_per_category,
-        random_seed=random_seed,
-    )
+    dataset = DeepSDFDataset(data_root)
     num_shapes = len(dataset)
     if num_shapes == 0:
         raise RuntimeError(f"No shapes found under {data_root}")
@@ -150,7 +145,6 @@ def train_autodecoder(
     selected_manifest = {
         "data_root": str(Path(data_root)),
         "num_shapes": num_shapes,
-        "objects_per_category": objects_per_category,
         "random_seed": random_seed,
         "shapes": selected_shape_ids,
     }
@@ -188,13 +182,12 @@ def train_autodecoder(
     logger.info("Saved selected samples manifest: %s", selected_manifest_path)
     logger.info("Saved selected sample IDs list: %s", selected_ids_txt_path)
     logger.info(
-        "Hyperparameters | epochs=%d latent_size=%d hidden_size=%d lr=%.6f batch_points=%d objects_per_category=%s seed=%d",
+        "Hyperparameters | epochs=%d latent_size=%d hidden_size=%d lr=%.6f batch_points=%d seed=%d",
         epochs,
         latent_size,
         hidden_size,
         lr,
         batch_points,
-        objects_per_category,
         random_seed,
     )
 
@@ -323,7 +316,6 @@ def train_autodecoder(
         "num_shapes": num_shapes,
         "latent_size": latent_size,
         "hidden_size": hidden_size,
-        "objects_per_category": objects_per_category,
         "random_seed": random_seed,
     }
     with open(save_path / "meta.json", "w") as f:
@@ -346,12 +338,6 @@ def main():
     parser.add_argument("--hidden-size", type=int, default=DEEPSDF_TRAINING["hidden_size"])
     parser.add_argument("--lr", type=float, default=DEEPSDF_TRAINING["lr"])
     parser.add_argument("--seed", type=int, default=DEEPSDF_TRAINING["random_seed"])
-    parser.add_argument(
-        "--objects-per-category",
-        type=int,
-        default=DEEPSDF_TRAINING["objects_per_category"],
-        help="Max number of objects sampled per category (uses all when unset)",
-    )
     parser.add_argument("--epochs", type=int, default=DEEPSDF_TRAINING["epochs"])
     parser.add_argument("--batch-points", type=int, default=DEEPSDF_TRAINING["batch_points"])
     parser.add_argument("--save-dir", type=str, default=str(DEEPSDF_TRAINING["save_dir"]))
@@ -364,7 +350,6 @@ def main():
         hidden_size=args.hidden_size,
         lr=args.lr,
         random_seed=args.seed,
-        objects_per_category=args.objects_per_category,
         epochs=args.epochs,
         batch_points=args.batch_points,
         save_dir=args.save_dir,

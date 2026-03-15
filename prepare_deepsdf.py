@@ -72,6 +72,20 @@ Examples:
     )
     
     parser.add_argument(
+        "--objects-per-category",
+        type=int,
+        default=DEEPSDF_SETTINGS["objects_per_category"],
+        help=f"Max objects to preprocess per category, use 0 for all (default: {DEEPSDF_SETTINGS['objects_per_category']})"
+    )
+
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=DEEPSDF_SETTINGS["random_seed"],
+        help=f"Random seed for reproducible object selection (default: {DEEPSDF_SETTINGS['random_seed']})"
+    )
+
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose logging"
@@ -106,6 +120,8 @@ Examples:
         category = None
     
     # Create preprocessor
+    objects_per_category = args.objects_per_category if args.objects_per_category > 0 else None
+
     logger.info("=" * 70)
     logger.info("DeepSDF Data Preprocessing Pipeline")
     logger.info("=" * 70)
@@ -113,6 +129,8 @@ Examples:
     logger.info(f"Output directory: {args.output}")
     logger.info(f"Samples per mesh: {args.num_samples}")
     logger.info(f"Category: {args.category if args.category else 'All'}")
+    logger.info(f"Objects per category: {objects_per_category if objects_per_category else 'All'}")
+    logger.info(f"Random seed: {args.seed}")
     logger.info(f"Output format: {args.format}")
     logger.info("=" * 70 + "\n")
     
@@ -127,7 +145,9 @@ Examples:
         stats = preprocessor.preprocess_dataset(
             dataset_dir=str(DATA_DIR),
             output_dir=args.output,
-            category=category
+            category=category,
+            objects_per_category=objects_per_category,
+            random_seed=args.seed,
         )
         
         logger.info("\n✅ Preprocessing completed successfully!")

@@ -18,13 +18,9 @@ class DeepSDFDataset(Dataset):
         self,
         root: str,
         extensions: Optional[List[str]] = None,
-        objects_per_category: Optional[int] = None,
-        random_seed: Optional[int] = None,
     ):
         self.root = Path(root)
         self.extensions = extensions or DEEPSDF_DATASET["extensions"]
-        self.objects_per_category = objects_per_category
-        self.random_seed = random_seed
         self.shape_files = []
         category_shape_files: Dict[str, List[Path]] = {}
 
@@ -46,22 +42,8 @@ class DeepSDFDataset(Dataset):
             if category_files:
                 category_shape_files[category.name] = category_files
 
-        if self.objects_per_category is None:
-            for category_name in sorted(category_shape_files):
-                self.shape_files.extend(category_shape_files[category_name])
-        else:
-            rng = np.random.default_rng(self.random_seed)
-            for category_name in sorted(category_shape_files):
-                category_files = category_shape_files[category_name]
-                sample_count = min(self.objects_per_category, len(category_files))
-                if sample_count == len(category_files):
-                    selected_files = category_files
-                else:
-                    selected_indices = rng.choice(
-                        len(category_files), size=sample_count, replace=False
-                    )
-                    selected_files = [category_files[idx] for idx in sorted(selected_indices)]
-                self.shape_files.extend(selected_files)
+        for category_name in sorted(category_shape_files):
+            self.shape_files.extend(category_shape_files[category_name])
 
     def __len__(self):
         return len(self.shape_files)

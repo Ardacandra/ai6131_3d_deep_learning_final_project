@@ -12,9 +12,10 @@ Based on: Park et al., "DeepSDF: Learning Continuous Signed Distance Functions f
 C++ reference: Facebook Research preprocessing scripts
 """
 
+import json
 import numpy as np
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 import logging
 from scipy.spatial import cKDTree
 import trimesh
@@ -451,81 +452,134 @@ class DeepSDFPreprocessor:
         self,
         dataset_dir: str,
         output_dir: str,
-        category: Optional[str] = None
+        category: Optional[str] = None,
+        objects_per_category: Optional[int] = None,
+        random_seed: Optional[int] = None,
     ) -> dict:
         """
         Preprocess entire dataset.
-        
+
+        Iterates through candidate meshes in each category and keeps processing
+        until the number of successfully prepared objects reaches
+        ``objects_per_category`` (when specified). Failed meshes are skipped and
+        do not count toward the quota. The selected model IDs are written to
+        ``<output_dir>/selected_samples.json`` after processing finishes.
+
         Args:
             dataset_dir: Root dataset directory
             output_dir: Output directory for processed meshes
             category: Specific category to process (optional)
-            
+            objects_per_category: Max objects to preprocess per category.
+                ``None`` (default) processes every available model.
+            random_seed: Seed for reproducible object selection.
+
         Returns:
             Dictionary with overall statistics
         """
         dataset_dir = Path(dataset_dir)
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
+        rng = np.random.default_rng(random_seed)
+
         all_stats = []
-        
+        selected_by_category: Dict[str, List[str]] = {}
+
         # Find all mesh files
         if category:
             category_dirs = [dataset_dir / category]
         else:
-            category_dirs = [d for d in dataset_dir.iterdir() if d.is_dir()]
-        
-        total_meshes = 0
+            category_dirs = sorted([d for d in dataset_dir.iterdir() if d.is_dir()])
+
+        # Collect available models per category.
+        # Maps category_name -> list of (model_id, obj_file) tuples
+        category_models: Dict[str, List[tuple]] = {}
         for category_dir in category_dirs:
             if not category_dir.is_dir():
                 continue
-            
+
             category_name = category_dir.name
-            logger.info(f"\n📁 Processing category: {category_name}")
-            
-            # Find all model directories
-            for model_dir in tqdm(sorted(category_dir.iterdir()), desc=f"Category {category_name}"):
+            available = []
+            for model_dir in sorted(category_dir.iterdir()):
                 if not model_dir.is_dir():
                     continue
-                
-                model_id = model_dir.name
                 models_dir = model_dir / "models"
-                
                 if not models_dir.exists():
                     continue
-                
-                # Find OBJ file
                 obj_files = list(models_dir.glob("model_normalized.obj"))
-                if not obj_files:
-                    continue
-                
-                obj_file = obj_files[0]
-                
+                if obj_files:
+                    available.append((model_dir.name, obj_files[0]))
+
+            if not available:
+                continue
+
+            category_models[category_name] = available
+
+        # Process meshes while ensuring successful count hits per-category quota.
+        total_meshes = 0
+        for category_name, available_models in category_models.items():
+            selected_successful_ids: List[str] = []
+            target_count = objects_per_category
+
+            # Keep deterministic selection order when a seed is provided.
+            # If no seed is provided, keep sorted filesystem order.
+            models = list(available_models)
+            if random_seed is not None:
+                perm = rng.permutation(len(models))
+                models = [models[idx] for idx in perm]
+
+            logger.info(
+                f"\n📁 Processing category: {category_name} "
+                f"(available={len(models)}, target={target_count if target_count is not None else 'All'})"
+            )
+
+            for model_id, obj_file in tqdm(models, desc=f"Category {category_name}"):
+                if target_count is not None and len(selected_successful_ids) >= target_count:
+                    break
+
                 # Create output structure
                 output_category_dir = output_dir / category_name / model_id
                 output_file = output_category_dir / f"sdf.{self.output_format}"
-                
+
                 # Skip if already processed
                 if output_file.exists():
                     logger.debug(f"Skipping {model_id} (already exists)")
+                    selected_successful_ids.append(model_id)
                     total_meshes += 1
                     continue
-                
+
                 try:
                     stats = self.preprocess_mesh(str(obj_file), str(output_file))
                     stats['category'] = category_name
                     stats['model_id'] = model_id
                     all_stats.append(stats)
+                    selected_successful_ids.append(model_id)
                     total_meshes += 1
                 except Exception as e:
                     logger.warning(f"Failed to process {model_id}: {e}")
+
+            if target_count is not None and len(selected_successful_ids) < target_count:
+                logger.warning(
+                    "Category %s reached only %d/%d successful objects",
+                    category_name,
+                    len(selected_successful_ids),
+                    target_count,
+                )
+
+            selected_by_category[category_name] = selected_successful_ids
+
+        # Write successful sample manifest after processing.
+        manifest_path = output_dir / "selected_samples.json"
+        with open(manifest_path, "w") as f:
+            json.dump(selected_by_category, f, indent=2)
+        logger.info(f"Saved selected samples manifest: {manifest_path}")
         
         # Summary statistics
         summary = {
             'total_meshes_processed': total_meshes,
             'output_directory': str(output_dir),
             'output_format': self.output_format,
+            'selected_samples_file': str(manifest_path),
             'statistics': all_stats
         }
         
