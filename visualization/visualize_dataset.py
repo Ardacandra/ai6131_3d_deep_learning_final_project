@@ -8,6 +8,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from pathlib import Path
 import glob
 from typing import Dict, List, Tuple
@@ -131,22 +132,28 @@ class ShapeNetExplorer:
                 
                 # Plot vertices
                 if len(vertices) > 0:
-                    ax.scatter(vertices[:, 0], vertices[:, 1], vertices[:, 2], 
-                             c='steelblue', marker='o', s=1, alpha=0.6)
-                    
-                    # Plot edges (sample for visualization clarity)
                     if len(faces) > 0:
-                        sample_faces = np.random.choice(len(faces), 
-                                                       min(500, len(faces)), 
-                                                       replace=False)
-                        for face_idx in sample_faces:
-                            face = faces[face_idx]
-                            # Draw edges of the face
-                            for i in range(len(face)):
-                                v1 = vertices[face[i]]
-                                v2 = vertices[face[(i + 1) % len(face)]]
-                                ax.plot([v1[0], v2[0]], [v1[1], v2[1]], 
-                                       [v1[2], v2[2]], 'b-', alpha=0.3, linewidth=0.5)
+                        valid_faces = [
+                            face for face in faces
+                            if len(face) >= 3 and max(face) < len(vertices)
+                        ]
+
+                        if valid_faces:
+                            polygons = [vertices[np.asarray(face, dtype=np.int32)] for face in valid_faces]
+                            mesh = Poly3DCollection(
+                                polygons,
+                                facecolor='lightsteelblue',
+                                edgecolor=(0.15, 0.30, 0.55, 0.18),
+                                linewidths=0.15,
+                                alpha=1.0,
+                            )
+                            ax.add_collection3d(mesh)
+                        else:
+                            ax.scatter(vertices[:, 0], vertices[:, 1], vertices[:, 2],
+                                      c='steelblue', marker='o', s=1, alpha=0.6)
+                    else:
+                        ax.scatter(vertices[:, 0], vertices[:, 1], vertices[:, 2],
+                                  c='steelblue', marker='o', s=1, alpha=0.6)
                     
                     # Set labels and title
                     ax.set_xlabel('X')
@@ -206,7 +213,8 @@ class ShapeNetExplorer:
                     voxel_data = load_binvox(str(binvox_file))
                     
                     # Downsample for visualization
-                    step = max(1, voxel_data.shape[0] // 32)
+                    downsampling_target = VISUALIZATION_SETTINGS.get("voxel_downsampling_target", 32)
+                    step = max(1, voxel_data.shape[0] // downsampling_target)
                     voxel_data_sampled = voxel_data[::step, ::step, ::step]
                     
                     ax = fig.add_subplot(1, 2, plot_idx + 1, projection='3d')

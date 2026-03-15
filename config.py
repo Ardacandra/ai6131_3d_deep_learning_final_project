@@ -28,8 +28,7 @@ VISUALIZATION_SETTINGS = {
     "mesh_dpi": 100,
     "voxel_figure_size": (14, 6),
     "voxel_dpi": 100,
-    "voxel_downsampling_target": 32,  # Downsample voxel grids to 32x32x32
-    "mesh_sample_faces": 500,  # Number of faces to sample for edge visualization
+    "voxel_downsampling_target": 72,  # Downsample voxel grids to 72x72x72
 }
 
 # File format settings
