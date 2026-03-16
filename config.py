@@ -56,7 +56,7 @@ DEEPSDF_DATASET = {
 
 # DeepSDF model defaults
 DEEPSDF_MODEL = {
-    "latent_size": 128,
+    "latent_size": 256,
     "hidden_size": 512,
     "num_layers": 8,
     "dims": None,
@@ -73,29 +73,29 @@ DEEPSDF_MODEL = {
 # DeepSDF training defaults
 DEEPSDF_TRAINING = {
     "data_root": Path("./data/shapenet_sdf"),
-    "latent_size": 128,
+    "latent_size": 256,
     "hidden_size": 512,
-    "lr": 5e-4,
+    "lr": 3e-4,
     "random_seed": 42,
-    "epochs": 2000,
+    "epochs": 3000,
     "batch_points": 16384,
-    "samples_per_scene": 2048,
+    "samples_per_scene": 4096,
     "scenes_per_batch": 16,
     "batch_split": 1,
     "clamp_dist": 0.1,
     "code_regularization": True,
-    "code_regularization_lambda": 1e-4,
-    "code_bound": None,
+    "code_regularization_lambda": 5e-4,
+    "code_bound": 1.0,
     "code_init_stddev": 1.0,
-    "grad_clip_norm": None,
+    "grad_clip_norm": 1.0,
     "log_frequency": 10,
     "snapshot_frequency": 100,
     "additional_snapshots": [],
     "lr_schedules": [
         {
             "type": "step",
-            "initial": 5e-4,
-            "interval": 500,   # every 500 epochs
+            "initial": 3e-4,
+            "interval": 300,   # every 300 epochs
             "factor": 0.5      # multiply LR by 0.5
         }
     ],

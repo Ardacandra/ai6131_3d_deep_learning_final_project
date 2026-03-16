@@ -4,6 +4,8 @@ from pathlib import Path
 import json
 import math
 import time
+import re
+import glob
 
 import numpy as np
 import torch
@@ -174,6 +176,38 @@ def train_autodecoder(
     loss_log = []
     lr_log = []
     timing_log = []
+    start_epoch = 1
+
+    # Check for existing checkpoints and resume from the latest one
+    checkpoint_pattern = save_path / "deepsdf_epoch_*.pth"
+    existing_checkpoints = glob.glob(str(checkpoint_pattern))
+    
+    if existing_checkpoints:
+        # Extract epoch numbers from checkpoint filenames
+        epoch_numbers = []
+        for ckpt_file in existing_checkpoints:
+            match = re.search(r'deepsdf_epoch_(\d+)\.pth', ckpt_file)
+            if match:
+                epoch_numbers.append(int(match.group(1)))
+        
+        if epoch_numbers:
+            latest_epoch = max(epoch_numbers)
+            latest_ckpt = save_path / f"deepsdf_epoch_{latest_epoch}.pth"
+            logger.info("Found existing checkpoint: %s", latest_ckpt)
+            
+            try:
+                ckpt = torch.load(latest_ckpt, map_location=device)
+                decoder.load_state_dict(ckpt["decoder_state"])
+                latents.weight.data = torch.from_numpy(ckpt["latents"]).to(device)
+                optimizer.load_state_dict(ckpt["optimizer"])
+                start_epoch = ckpt["epoch"] + 1
+                loss_log = ckpt.get("loss_log", [])
+                lr_log = ckpt.get("lr_log", [])
+                timing_log = ckpt.get("timing_log", [])
+                logger.info("Resumed training from epoch %d", start_epoch)
+            except Exception as e:
+                logger.warning("Failed to load checkpoint %s: %s. Starting fresh.", latest_ckpt, e)
+                start_epoch = 1
 
     logger.info("Starting DeepSDF training")
     logger.info("Device: %s", device)
@@ -198,7 +232,7 @@ def train_autodecoder(
         logger.info("Selected IDs | category=%s count=%d", category_id, len(grouped_ids[category_id]))
         logger.info("Selected IDs | %s", ", ".join(grouped_ids[category_id]))
 
-    for epoch in range(1, epochs + 1):
+    for epoch in range(start_epoch, epochs + 1):
         start = time.time()
         perm = np.random.permutation(num_shapes)
         total_loss = 0.0
