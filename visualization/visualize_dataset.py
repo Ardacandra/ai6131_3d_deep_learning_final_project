@@ -21,7 +21,6 @@ from config import (
     OUTPUT_DIR,
     SHAPENET_CATEGORIES,
     VISUALIZATION_SETTINGS,
-    FILE_FORMATS,
 )
 
 

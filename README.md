@@ -131,79 +131,20 @@ python -m src.deepsdf.train ./data/shapenet_sdf \
    --save-dir ./out/deepsdf
 ```
 
-## DeepSDF + CACL Training
-
-This variant keeps the same DeepSDF autodecoder architecture and adds a category-aware triplet loss on latent codes:
-
-* $L_{tri} = \max(0, |z_a - z_p|_2^2 - |z_a - z_n|_2^2 + m)$
-* $\mathcal{L} = \mathcal{L}_{sdf} + \lambda\_{tri}\mathcal{L}\_{tri}$
-
-Run with defaults from `config.py`:
-
-```bash
-python -m src.deepsdf_cacl.train
-```
-
-Example with explicit CACL hyperparameters:
-
-```bash
-python -m src.deepsdf_cacl.train ./data/shapenet_sdf \
-   --triplet-margin 0.2 \
-   --triplet-lambda 0.1 \
-   --triplets-per-batch 16 \
-   --save-dir ./out/deepsdf_cacl
-```
-
 ## DeepSDF Evaluation
-
-### Overview
 
 The evaluation script measures the quality of the trained DeepSDF model by comparing reconstructed meshes against ground truth meshes from the dataset. Five key metrics are computed:
 
 1. **Chamfer Distance (Mean and Median)**
-   - Bidirectional point-to-point distance between predicted and ground truth meshes
-   - Measures geometric similarity between shapes
-   
 2. **Earth Mover's Distance (Mean and Median)**
-   - Wasserstein distance computed per coordinate dimension
-   - Measures distribution similarity between point clouds
-   
 3. **Mesh Accuracy @ 90%**
-   - The minimum distance d such that 90% of generated points are within d of the ground truth
-   - Measures reconstruction precision
-
 4. **Silhouette Score (Latent Manifold)**
-   - Measures how tightly latent codes cluster within category while separating from other categories
-   - Higher values indicate better manifold separation
-
 5. **Davies-Bouldin Index (Latent Manifold)**
-   - Measures average similarity between each cluster and its most similar neighboring cluster
-   - Lower values indicate better-separated latent categories
 
 ### Running Evaluation
 
-**Basic usage (evaluates all shapes with latest checkpoint):**
-
 ```bash
 python -m src.deepsdf.evaluate
-```
-
-```bash
-python -m src.deepsdf_cacl.evaluate
-```
-
-**Full parameter control:**
-
-```bash
-python -m src.deepsdf.evaluate \
-   --checkpoint out/deepsdf/deepsdf_latest.pth \
-   --data-root data/shapenet_sdf \
-   --gt-data-root data/shapenet_v2_subset \
-   --device cuda \
-   --resolution 128 \
-   --num-sample-points 10000 \
-   --max-shapes 100 \
-   --output my_evaluation.json
 ```
 
 ## DeepSDF Output Visualization
@@ -212,16 +153,6 @@ python -m src.deepsdf.evaluate \
 
 ```bash
 python -m visualization.visualize_deepsdf
-```
-
-**Visualize with custom parameters:**
-
-```bash
-python -m visualization.visualize_deepsdf \
-   --checkpoint out/deepsdf/deepsdf_latest.pth \
-   --num-shapes 10 \
-   --resolution 256 \
-   --output-dir ./out/viz/
 ```
 
 ## References
