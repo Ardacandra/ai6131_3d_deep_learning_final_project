@@ -160,28 +160,21 @@ class DeepSDFVisualizer:
     @staticmethod
     def _plot_mesh_3d(ax, mesh: trimesh.Trimesh, color: str = 'steelblue', title: str = ""):
         """Helper to plot a mesh in 3D."""
-        # Sample surface points for visualization
-        if len(mesh.vertices) > 5000:
-            indices = np.random.choice(len(mesh.vertices), 5000, replace=False)
-            verts = mesh.vertices[indices]
-        else:
-            verts = mesh.vertices
-        
-        # Plot as scatter
+        # Plot all surface points.
+        verts = mesh.vertices
         ax.scatter(verts[:, 0], verts[:, 1], verts[:, 2], c=color, s=1, alpha=0.6)
-        
-        # Optionally plot wireframe for small meshes
-        if len(mesh.faces) < 10000:
-            ax.plot_trisurf(
-                mesh.vertices[:, 0],
-                mesh.vertices[:, 1],
-                mesh.vertices[:, 2],
-                triangles=mesh.faces,
-                color=color,
-                alpha=0.1,
-                edgecolor='gray',
-                linewidth=0.1
-            )
+
+        # Always render mesh wireframe/surface overlay.
+        ax.plot_trisurf(
+            mesh.vertices[:, 0],
+            mesh.vertices[:, 1],
+            mesh.vertices[:, 2],
+            triangles=mesh.faces,
+            color=color,
+            alpha=0.1,
+            edgecolor='gray',
+            linewidth=0.1
+        )
         
         # Set labels and limits
         ax.set_xlabel('X')
