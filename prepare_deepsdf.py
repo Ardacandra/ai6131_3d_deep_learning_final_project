@@ -23,15 +23,18 @@ def main():
         description="Preprocess ShapeNet dataset for DeepSDF training",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Process all categories
-  python prepare_deepsdf.py --output ./data/shapenet_sdf/
+    Examples:
+    # Process all categories
+    python prepare_deepsdf.py --output ./data/shapenet_sdf/
+    
+    # Process specific category
+    python prepare_deepsdf.py --category Airplane --output ./data/shapenet_sdf/
   
-  # Process specific category
-  python prepare_deepsdf.py --category Airplane --output ./data/shapenet_sdf/
-  
-  # Custom number of samples
-  python prepare_deepsdf.py --num-samples 250000 --output ./data/shapenet_sdf/
+    # Custom number of samples
+    python prepare_deepsdf.py --num-samples 250000 --output ./data/shapenet_sdf/
+
+    # Override the two near-surface Gaussian scales
+    python prepare_deepsdf.py --variance-primary 0.005 --variance-secondary 0.0005
         """
     )
     
@@ -57,10 +60,23 @@ Examples:
     )
     
     parser.add_argument(
-        "--variance",
+        "--variance-primary",
         type=float,
-        default=DEEPSDF_SETTINGS["surface_variance"],
-        help=f"Variance for near-surface sampling (default: {DEEPSDF_SETTINGS['surface_variance']})"
+        default=DEEPSDF_SETTINGS["surface_variance_primary"],
+        help=(
+            "Primary variance for near-surface normal offsets "
+            f"(default: {DEEPSDF_SETTINGS['surface_variance_primary']})"
+        )
+    )
+
+    parser.add_argument(
+        "--variance-secondary",
+        type=float,
+        default=DEEPSDF_SETTINGS["surface_variance_secondary"],
+        help=(
+            "Secondary tighter variance for near-surface normal offsets "
+            f"(default: {DEEPSDF_SETTINGS['surface_variance_secondary']})"
+        )
     )
     
     parser.add_argument(
@@ -128,6 +144,7 @@ Examples:
     logger.info(f"Dataset directory: {DATA_DIR}")
     logger.info(f"Output directory: {args.output}")
     logger.info(f"Samples per mesh: {args.num_samples}")
+    logger.info(f"Near-surface variances: primary={args.variance_primary}, secondary={args.variance_secondary}")
     logger.info(f"Category: {args.category if args.category else 'All'}")
     logger.info(f"Objects per category: {objects_per_category if objects_per_category else 'All'}")
     logger.info(f"Random seed: {args.seed}")
@@ -136,7 +153,8 @@ Examples:
     
     preprocessor = DeepSDFPreprocessor(
         num_spatial_samples=args.num_samples,
-        surface_variance=args.variance,
+        surface_variance=args.variance_primary,
+        surface_variance_secondary=args.variance_secondary,
         output_format=args.format
     )
     

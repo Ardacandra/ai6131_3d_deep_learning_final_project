@@ -1,15 +1,13 @@
 """
-DeepSDF Data Preprocessing Pipeline
+DeepSDF Data Preprocessing Pipeline.
 
-This module implements the data preparation method from the DeepSDF paper:
-- Normalizes meshes to unit sphere
-- Samples 500,000 spatial points with higher density near surface
-- Handles non-watertight meshes using visible surface sampling
-- Computes signed distance fields (SDF)
-- Outputs training data in NPY/NPZ format
-
-Based on: Park et al., "DeepSDF: Learning Continuous Signed Distance Functions for Shape Representation"
-C++ reference: Facebook Research preprocessing scripts
+This implementation emphasizes geometry-aware SDF labels for thin structures,
+openings, and holes by:
+- Normalizing meshes to the unit sphere
+- Sampling dense oriented surface points
+- Creating near-surface samples by offsetting along local normals
+- Estimating signs for broader spatial samples from local surface geometry
+- Saving training data in NPY/NPZ format
 """
 
 import json
@@ -120,9 +118,8 @@ class SurfaceSampler:
         # Get virtual camera positions
         views = self.get_equidistant_sphere_points()
         
-        # For each face, track which camera sees it
+        # For each face, estimate an outward normal from view voting.
         face_normals = np.zeros_like(self.mesh.face_normals)
-        face_visibility = {}
         
         for face_idx in range(len(self.mesh.faces)):
             face = self.mesh.faces[face_idx]
@@ -153,6 +150,14 @@ class SurfaceSampler:
                 normal = -normal
             
             face_normals[face_idx] = normal
+
+        # Sanity check global orientation: after normalization around origin,
+        # outward normals should generally point away from the center.
+        face_centers = self.mesh.vertices[self.mesh.faces].mean(axis=1)
+        radial_alignment = np.einsum("ij,ij->i", face_normals, face_centers)
+        if np.median(radial_alignment) < 0.0:
+            face_normals = -face_normals
+            logger.debug("Flipped face normals globally to enforce outward orientation")
         
         # Sample points from surface weighted by triangle area
         area_list = []
@@ -196,43 +201,67 @@ class SpatialPointSampler:
     @staticmethod
     def sample_near_surface(
         surface_points: np.ndarray,
+        surface_normals: np.ndarray,
         num_samples: int,
-        variance: Optional[float] = None,
-        second_variance: Optional[float] = None
-    ) -> np.ndarray:
+        primary_variance: Optional[float] = None,
+        secondary_variance: Optional[float] = None,
+        primary_ratio: Optional[float] = None,
+        clip_multiplier: Optional[float] = None,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Sample points near surface with Gaussian perturbation.
+        Sample points near surface by moving along oriented surface normals.
+
+        This keeps the sign locally consistent around cavities and openings,
+        which isotropic xyz perturbations tend to blur.
         
         Args:
             surface_points: Surface points to perturb
+            surface_normals: Outward-oriented normals for the sampled surface points
             num_samples: Number of spatial samples to generate
-            variance: Primary variance for near-surface sampling (default from config)
-            second_variance: Secondary variance for exploration (default from config * 0.1)
+            primary_variance: Broader Gaussian variance for offsets
+            secondary_variance: Tighter Gaussian variance for offsets
+            primary_ratio: Fraction of samples drawn from the primary variance
+            clip_multiplier: Sigma multiplier used to clamp extreme offsets
             
         Returns:
-            Sampled spatial points
+            Tuple of sampled spatial points and their signed distances
         """
-        variance = variance or DEEPSDF_SETTINGS["surface_variance"]
-        second_variance = second_variance or (DEEPSDF_SETTINGS["surface_variance"] / 10)
+        if primary_variance is None:
+            primary_variance = DEEPSDF_SETTINGS["surface_variance_primary"]
+        if secondary_variance is None:
+            secondary_variance = DEEPSDF_SETTINGS["surface_variance_secondary"]
+        if primary_ratio is None:
+            primary_ratio = DEEPSDF_SETTINGS["surface_sample_ratio_primary"]
+        if clip_multiplier is None:
+            clip_multiplier = DEEPSDF_SETTINGS["surface_offset_clip_multiplier"]
         logger.info(f"Sampling {num_samples} spatial points near surface...")
-        
-        spatial_points = []
-        
-        # Sample near surface with two different variances
-        num_primary = num_samples // 2
+
+        if len(surface_points) == 0:
+            return np.empty((0, 3)), np.empty((0,), dtype=np.float32)
+
+        num_primary = int(round(num_samples * primary_ratio))
+        num_primary = min(max(num_primary, 0), num_samples)
         num_secondary = num_samples - num_primary
-        
-        # Primary samples - closer to surface
-        for point in surface_points[:num_primary]:
-            perturbation = np.random.normal(0, np.sqrt(variance), 3)
-            spatial_points.append(point + perturbation)
-        
-        # Secondary samples - further from surface
-        for point in surface_points[:num_secondary]:
-            perturbation = np.random.normal(0, np.sqrt(second_variance), 3)
-            spatial_points.append(point + perturbation)
-        
-        return np.array(spatial_points)
+
+        def _sample_group(count: int, variance: float) -> Tuple[np.ndarray, np.ndarray]:
+            if count <= 0:
+                return np.empty((0, 3)), np.empty((0,), dtype=np.float32)
+
+            indices = np.random.randint(0, len(surface_points), size=count)
+            sigma = np.sqrt(variance)
+            offsets = np.random.normal(0.0, sigma, size=count)
+            if clip_multiplier is not None and clip_multiplier > 0:
+                offsets = np.clip(offsets, -clip_multiplier * sigma, clip_multiplier * sigma)
+
+            sampled_points = surface_points[indices] + surface_normals[indices] * offsets[:, None]
+            return sampled_points, offsets.astype(np.float32)
+
+        primary_points, primary_sdf = _sample_group(num_primary, primary_variance)
+        secondary_points, secondary_sdf = _sample_group(num_secondary, secondary_variance)
+
+        spatial_points = np.vstack([primary_points, secondary_points])
+        sdf_values = np.concatenate([primary_sdf, secondary_sdf])
+        return spatial_points, sdf_values
     
     @staticmethod
     def sample_random_cube(
@@ -272,6 +301,7 @@ class SDFComputer:
         self.surface_tree = cKDTree(surface_points)
         self.surface_points = surface_points
         self.surface_normals = surface_normals
+        self.mesh_is_watertight = bool(mesh.is_watertight)
     
     def compute(
         self,
@@ -280,62 +310,89 @@ class SDFComputer:
     ) -> np.ndarray:
         """
         Compute signed distance field values.
-        
-        Uses majority voting by checking if points are closer or further from mesh center
-        compared to their nearest surface neighbors.
+
+        Unsigned distance is approximated with the nearest oriented surface sample,
+        while the sign is estimated from a weighted local projection onto nearby
+        surface normals. This is substantially more faithful to cavities and thin
+        structures than a mesh-center heuristic.
         
         Args:
             spatial_points: Points at which to compute SDF
-            num_votes: Number of neighbors for majority voting (default from config)
+            num_votes: Number of neighbors used for local sign voting
             
         Returns:
             Array of signed distance values
         """
+        if len(spatial_points) == 0:
+            return np.empty((0,), dtype=np.float32)
+
         num_votes = num_votes or DEEPSDF_SETTINGS["num_votes"]
+        num_votes = max(1, min(num_votes, len(self.surface_points)))
         logger.info("Computing signed distance field values...")
-        
-        # Find k-nearest neighbors
+
+        # Find k-nearest oriented surface samples.
         distances, indices = self.surface_tree.query(spatial_points, k=num_votes)
-        
-        # Compute mesh center for inside/outside determination
-        mesh_center = self.surface_points.mean(axis=0)
-        
-        sdf_values = []
-        
-        for i, point in enumerate(tqdm(spatial_points, desc="Computing SDF")):
-            nearest_indices = indices[i]
-            nearest_distances = distances[i]
-            
-            if np.isscalar(nearest_distances):
-                nearest_distances = np.array([nearest_distances])
-            
-            # Use median distance as magnitude
-            distance_mag = np.median(nearest_distances)
-            
-            # Majority voting for sign determination based on distance from mesh center
-            # Points closer to center than their surface neighbors = inside (negative)
-            # Points further from center than their surface neighbors = outside (positive)
-            num_inside_votes = 0
-            
-            dist_to_center_point = np.linalg.norm(point - mesh_center)
-            
-            for nn_idx in nearest_indices:
-                if nn_idx < len(self.surface_points):
-                    surface_point = self.surface_points[nn_idx]
-                    dist_to_center_surface = np.linalg.norm(surface_point - mesh_center)
-                    
-                    # If point is closer to center than surface point, it's likely inside
-                    if dist_to_center_point < dist_to_center_surface:
-                        num_inside_votes += 1
-            
-            # Assign sign based on majority vote
-            # More votes for inside = negative SDF, more votes for outside = positive SDF
-            sign = -1.0 if num_inside_votes > num_votes // 2 else 1.0
-            sdf = sign * distance_mag
-            
-            sdf_values.append(sdf)
-        
-        return np.array(sdf_values)
+
+        if np.isscalar(distances):
+            distances = np.array([[distances]], dtype=np.float32)
+            indices = np.array([[indices]], dtype=np.int64)
+        elif distances.ndim == 1:
+            distances = distances[:, None]
+            indices = indices[:, None]
+
+        neighbor_points = self.surface_points[indices]
+        neighbor_normals = self.surface_normals[indices]
+        deltas = spatial_points[:, None, :] - neighbor_points
+        projected_distances = np.sum(deltas * neighbor_normals, axis=2)
+
+        weights = 1.0 / np.maximum(distances, 1e-8)
+        weight_sum = np.sum(weights, axis=1)
+        weighted_projection = np.sum(projected_distances * weights, axis=1) / weight_sum
+
+        vote_signs = np.sign(projected_distances)
+        vote_signs[vote_signs == 0.0] = 1.0
+        vote_consensus = np.abs(np.sum(vote_signs * weights, axis=1) / weight_sum)
+
+        nearest_projection = projected_distances[:, 0]
+        sign_source = weighted_projection.copy()
+        ambiguity_threshold = DEEPSDF_SETTINGS["sign_ambiguity_threshold"]
+        consensus_threshold = DEEPSDF_SETTINGS["sign_vote_consensus_threshold"]
+        ambiguous = (np.abs(sign_source) < ambiguity_threshold) | (vote_consensus < consensus_threshold)
+
+        unsigned_distance = distances[:, 0]
+
+        if np.any(ambiguous):
+            ambiguous_idx = np.where(ambiguous)[0]
+
+            used_contains_fallback = False
+            if DEEPSDF_SETTINGS.get("use_contains_sign_fallback", True) and self.mesh_is_watertight:
+                try:
+                    contains_batch_size = int(DEEPSDF_SETTINGS.get("contains_batch_size", 8192))
+                    contains_batch_size = max(1, contains_batch_size)
+                    ambiguous_points = spatial_points[ambiguous_idx]
+                    inside_mask = np.zeros(len(ambiguous_points), dtype=bool)
+
+                    for start in range(0, len(ambiguous_points), contains_batch_size):
+                        end = start + contains_batch_size
+                        inside_mask[start:end] = self.mesh.contains(ambiguous_points[start:end])
+
+                    sign_source[ambiguous_idx] = np.where(inside_mask, -1.0, 1.0)
+                    used_contains_fallback = True
+                except Exception as exc:
+                    logger.debug("mesh.contains fallback unavailable: %s", exc)
+
+            if not used_contains_fallback:
+                far_field_threshold = DEEPSDF_SETTINGS.get("far_field_distance_threshold", 0.08)
+                far_mask = unsigned_distance[ambiguous_idx] > far_field_threshold
+                if np.any(far_mask):
+                    sign_source[ambiguous_idx[far_mask]] = 1.0
+
+                unresolved_idx = ambiguous_idx[~far_mask]
+                sign_source[unresolved_idx] = nearest_projection[unresolved_idx]
+
+        signs = np.where(sign_source < 0.0, -1.0, 1.0)
+
+        return (signs * unsigned_distance).astype(np.float32)
 
 
 class DeepSDFPreprocessor:
@@ -345,6 +402,7 @@ class DeepSDFPreprocessor:
         self,
         num_spatial_samples: Optional[int] = None,
         surface_variance: Optional[float] = None,
+        surface_variance_secondary: Optional[float] = None,
         output_format: Optional[str] = None
     ):
         """
@@ -352,11 +410,21 @@ class DeepSDFPreprocessor:
         
         Args:
             num_spatial_samples: Total spatial samples to generate (default from config)
-            surface_variance: Variance for surface sampling (default from config)
+            surface_variance: Primary variance for near-surface sampling
+            surface_variance_secondary: Secondary tighter variance for near-surface sampling
             output_format: Output format 'npz' or 'npy' (default from config)
         """
-        self.num_spatial_samples = num_spatial_samples or DEEPSDF_SETTINGS["num_spatial_samples"]
-        self.surface_variance = surface_variance or DEEPSDF_SETTINGS["surface_variance"]
+        self.num_spatial_samples = (
+            num_spatial_samples if num_spatial_samples is not None else DEEPSDF_SETTINGS["num_spatial_samples"]
+        )
+        self.surface_variance = (
+            surface_variance if surface_variance is not None else DEEPSDF_SETTINGS["surface_variance_primary"]
+        )
+        self.surface_variance_secondary = (
+            surface_variance_secondary
+            if surface_variance_secondary is not None
+            else DEEPSDF_SETTINGS["surface_variance_secondary"]
+        )
         self.output_format = output_format or DEEPSDF_SETTINGS["output_format"]
         
         # Ratio of near-surface to random samples (47:3 from paper)
@@ -405,23 +473,25 @@ class DeepSDFPreprocessor:
         # Sample spatial points
         num_near_surface = int(self.num_spatial_samples * self.near_surface_ratio)
         num_random = self.num_spatial_samples - num_near_surface
-        
-        near_surface_points = SpatialPointSampler.sample_near_surface(
+
+        near_surface_points, near_surface_sdf = SpatialPointSampler.sample_near_surface(
             surface_points,
+            surface_normals,
             num_near_surface,
-            variance=self.surface_variance,
-            second_variance=self.surface_variance / 10
+            primary_variance=self.surface_variance,
+            secondary_variance=self.surface_variance_secondary,
         )
-        
+
         random_points = SpatialPointSampler.sample_random_cube(num_random)
-        
-        # Combine all spatial points
-        spatial_points = np.vstack([near_surface_points, random_points])
-        logger.info(f"Total spatial points: {len(spatial_points)}")
-        
-        # Compute SDF values
+
+        # Compute SDF values for the broader spatial samples with local geometry voting.
         sdf_computer = SDFComputer(mesh, surface_points, surface_normals)
-        sdf_values = sdf_computer.compute(spatial_points)
+        random_sdf = sdf_computer.compute(random_points)
+
+        # Combine all spatial points and SDF values.
+        spatial_points = np.vstack([near_surface_points, random_points])
+        sdf_values = np.concatenate([near_surface_sdf, random_sdf])
+        logger.info(f"Total spatial points: {len(spatial_points)}")
         
         # Save output
         output_path = Path(output_path)
@@ -600,6 +670,7 @@ def main():
     preprocessor = DeepSDFPreprocessor(
         num_spatial_samples=500000,
         surface_variance=0.005,
+        surface_variance_secondary=0.0005,
         output_format="npz"
     )
     

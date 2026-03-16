@@ -81,14 +81,15 @@ python -m visualization.visualize_dataset
 
 ## Data Preprocessing for DeepSDF
 
-The preprocessing pipeline implements the methodology from the DeepSDF paper (Park et al., CVPR 2019):
+The preprocessing pipeline implements the methodology from the DeepSDF paper (Park et al., CVPR 2019), with a geometry-aware SDF labelling step to better preserve thin structures, openings, and holes:
 
-- **Object Selection** - Iterate candidate meshes per category until `objects_per_category` successful preprocesses are reached (default: 50), skipping failed meshes
-- **Mesh Normalization** - Scale each mesh to a unit sphere
-- **Surface Sampling** - Sample 500,000 spatial points with 47% density near the surface
-- **Proper Orientation** - Handle non-watertight meshes using visible surface sampling with virtual cameras (100 viewpoints)
-- **SDF Computation** - Compute signed distance values using k-nearest neighbor voting (11 neighbors)
-- **Output** - Save as NPZ format with separate positive/negative samples
+- **Object Selection** — Iterate candidate meshes per category until `objects_per_category` successful preprocesses are reached, skipping failed meshes
+- **Mesh Normalization** — Scale each mesh to a unit sphere (centroid at origin, longest radius = 1)
+- **Oriented Surface Sampling** — Sample surface points with face normals oriented via majority-vote across 100 virtual camera viewpoints, plus a global radial alignment sanity check to enforce outward orientation
+- **Near-Surface Samples** — Offset each surface point along its oriented normal by a scalar drawn from one of two Gaussians (σ² = `surface_variance_primary` or `surface_variance_secondary`); the signed offset distance is used directly as the SDF value
+- **Random Spatial Samples** — Uniformly sample from the bounding cube for broad spatial coverage
+- **SDF Sign Estimation** — Compute SDF for random spatial samples via weighted local normal-projection voting; flag ambiguous points (near-zero weighted projection, or low vote consensus below `sign_vote_consensus_threshold`) and resolve with a three-tier fallback: `mesh.contains()` for watertight meshes, positive (outside) bias for points farther than `far_field_distance_threshold` from the surface, or nearest-neighbor projection for remaining close ambiguous points
+- **Output** — Save as NPZ with separate `pos` (outside, SDF ≥ 0) and `neg` (inside, SDF < 0) sample arrays
 
 ### Running the Preprocessing
 
