@@ -22,6 +22,7 @@ import trimesh
 from src.deepsdf.evaluate import (
     load_checkpoint,
     sdf_to_mesh,
+    sdf_to_pointcloud,
     load_ground_truth_mesh,
     _load_selected_shape_paths,
 )
@@ -157,6 +158,123 @@ class DeepSDFVisualizer:
         
         return str(output_path)
     
+    def visualize_shape_pointcloud(
+        self,
+        shape_index: int,
+        resolution: int = DEEPSDF_EVALUATION["resolution"],
+        save: bool = True,
+    ) -> Optional[Tuple]:
+        """
+        Visualize a single shape as point clouds: predicted vs ground truth.
+
+        The predicted point cloud is obtained directly from the SDF grid
+        (no marching cubes). The ground truth point cloud is sampled from the
+        GT mesh surface.
+
+        Args:
+            shape_index: Index of shape in dataset
+            resolution: Grid resolution for SDF queries
+            save: Whether to save the figure to disk
+
+        Returns:
+            Tuple of (pred_points, gt_points) as (N,3) numpy arrays, or None.
+        """
+        shape_path, idx = self.get_shape_info(shape_index)
+
+        print(f"\n{'='*70}")
+        print(f"Visualizing shape {shape_index} (point cloud): "
+              f"{shape_path.parent.name}/{shape_path.parent.parent.name}")
+        print(f"{'='*70}")
+
+        latent_code = self.latent_embeddings.weight[idx].unsqueeze(0)
+        pred_pts = sdf_to_pointcloud(
+            self.decoder, latent_code, resolution=resolution, device=self.device
+        )
+        if pred_pts is None or len(pred_pts) == 0:
+            print("❌ Failed to extract predicted point cloud")
+            return None
+
+        print(f"✅ Predicted point cloud: {len(pred_pts)} points")
+
+        gt_mesh = load_ground_truth_mesh(shape_path, self.gt_data_root)
+        if gt_mesh is None or len(gt_mesh.vertices) == 0:
+            print("❌ Failed to load ground truth mesh")
+            return None
+
+        # Sample the same order of magnitude of points from the GT surface.
+        n_sample = min(len(pred_pts), 30_000)
+        gt_pts, _ = trimesh.sample.sample_surface(gt_mesh, n_sample)
+        gt_pts = gt_pts.astype(np.float32)
+        print(f"✅ Ground truth point cloud: {len(gt_pts)} points (sampled from mesh)")
+
+        if save:
+            self.plot_pointcloud_comparison(pred_pts, gt_pts, shape_index)
+
+        return pred_pts, gt_pts
+
+    def plot_pointcloud_comparison(
+        self,
+        pred_pts: np.ndarray,
+        gt_pts: np.ndarray,
+        shape_index: int,
+        title_suffix: str = "",
+    ) -> str:
+        """
+        Create side-by-side 3D scatter plot of predicted vs ground truth point clouds.
+
+        Args:
+            pred_pts: (N, 3) predicted surface points
+            gt_pts: (M, 3) ground truth surface points
+            shape_index: Index of shape for filename
+            title_suffix: Additional text for title
+
+        Returns:
+            Path to saved figure
+        """
+        fig = plt.figure(figsize=(16, 7))
+
+        ax1 = fig.add_subplot(121, projection='3d')
+        self._plot_pointcloud_3d(
+            ax1, pred_pts, color='steelblue',
+            title=f"Predicted Point Cloud{title_suffix}"
+        )
+
+        ax2 = fig.add_subplot(122, projection='3d')
+        self._plot_pointcloud_3d(
+            ax2, gt_pts, color='coral',
+            title=f"Ground Truth Point Cloud{title_suffix}"
+        )
+
+        plt.tight_layout()
+
+        output_path = self.output_dir / f"deepsdf_pointcloud_{shape_index:03d}.png"
+        plt.savefig(output_path, dpi=100, bbox_inches='tight')
+        print(f"💾 Saved point cloud visualization to {output_path}")
+        plt.close()
+
+        return str(output_path)
+
+    @staticmethod
+    def _plot_pointcloud_3d(ax, pts: np.ndarray, color: str = 'steelblue', title: str = ""):
+        """Helper to scatter-plot a point cloud in 3D."""
+        # Down-sample for rendering speed if very dense.
+        max_disp = 20_000
+        if len(pts) > max_disp:
+            idx = np.random.choice(len(pts), max_disp, replace=False)
+            pts = pts[idx]
+
+        ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2], c=color, s=1, alpha=0.5)
+
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.set_title(title, fontsize=12, fontweight='bold')
+
+        lim = np.max(np.abs(pts)) if len(pts) > 0 else 1.0
+        ax.set_xlim([-lim, lim])
+        ax.set_ylim([-lim, lim])
+        ax.set_zlim([-lim, lim])
+
     @staticmethod
     def _plot_mesh_3d(ax, mesh: trimesh.Trimesh, color: str = 'steelblue', title: str = ""):
         """Helper to plot a mesh in 3D."""
@@ -225,6 +343,7 @@ class DeepSDFVisualizer:
         per_category: bool = False,
         num_per_category: int = 2,
         resolution: int = DEEPSDF_EVALUATION["resolution"],
+        pointcloud: bool = False,
     ):
         """
         Visualize multiple shapes.
@@ -235,7 +354,8 @@ class DeepSDFVisualizer:
             num_random: Number of random shapes to visualize (if shape_indices is None and per_category is False)
             per_category: If True, select shapes from each category
             num_per_category: Number of shapes per category (if per_category is True)
-            resolution: Resolution for marching cubes
+            resolution: Resolution for marching cubes / SDF grid
+            pointcloud: If True, visualize as point clouds instead of meshes
         """
         # Determine which shapes to visualize
         if shape_indices is None:
@@ -248,17 +368,22 @@ class DeepSDFVisualizer:
                 num_random = min(num_random, total_shapes)
                 shape_indices = np.random.choice(total_shapes, num_random, replace=False)
         
-        print(f"\nVisualizing {len(shape_indices)} shapes...")
+        mode_label = "point cloud" if pointcloud else "mesh"
+        print(f"\nVisualizing {len(shape_indices)} shapes ({mode_label} mode)...")
         
         successful = 0
         failed = 0
         
         for shape_idx in shape_indices:
             try:
-                result = self.visualize_shape(shape_idx, resolution=resolution)
+                if pointcloud:
+                    result = self.visualize_shape_pointcloud(shape_idx, resolution=resolution)
+                else:
+                    result = self.visualize_shape(shape_idx, resolution=resolution)
+                    if result is not None:
+                        pred_mesh, gt_mesh = result
+                        self.plot_mesh_comparison(pred_mesh, gt_mesh, shape_idx)
                 if result is not None:
-                    pred_mesh, gt_mesh = result
-                    self.plot_mesh_comparison(pred_mesh, gt_mesh, shape_idx)
                     successful += 1
                 else:
                     failed += 1
@@ -346,6 +471,11 @@ def main():
         default=None,
         help="Specific shape indices to visualize (e.g., 0 1 2 3)"
     )
+    parser.add_argument(
+        "--pointcloud",
+        action="store_true",
+        help="Visualize as point clouds instead of meshes (skips marching cubes)"
+    )
     
     args = parser.parse_args()
     
@@ -364,6 +494,7 @@ def main():
         visualizer.visualize_multiple(
             shape_indices=args.shape_indices,
             resolution=args.resolution,
+            pointcloud=args.pointcloud,
         )
     else:
         visualizer.visualize_multiple(
@@ -372,6 +503,7 @@ def main():
             per_category=args.per_category,
             num_per_category=args.num_per_category,
             resolution=args.resolution,
+            pointcloud=args.pointcloud,
         )
 
 

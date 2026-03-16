@@ -179,11 +179,82 @@ def sdf_to_mesh(
         if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
             print(f"  Marching cubes produced empty mesh")
             return None
-            
+
+        # Remove disconnected outlier components: keep only the largest connected component.
+        # Small islands typically arise when the isosurface level is hit at outlier grid
+        # locations far from the true surface (noise, boundary artefacts, etc.).
+        components = mesh.split(only_watertight=False)
+        if len(components) > 1:
+            mesh = max(components, key=lambda c: len(c.faces))
+            print(f"  Kept largest component ({len(mesh.faces)} faces) out of {len(components)} components")
+
         return mesh
     except (ValueError, RuntimeError) as e:
         print(f"  Marching cubes failed: {e}")
         return None
+
+
+def sdf_to_pointcloud(
+    decoder: DeepSDFDecoder,
+    latent_code: torch.Tensor,
+    resolution: int = DEEPSDF_EVALUATION["resolution"],
+    bounds: Tuple[float, float] = (-1.0, 1.0),
+    device: str = "cpu",
+    batch_size: int = DEEPSDF_EVALUATION["batch_size"],
+    threshold: Optional[float] = None,
+) -> Optional[np.ndarray]:
+    """
+    Extract a surface point cloud from DeepSDF by keeping grid points whose
+    absolute SDF value is below a threshold (i.e. near the zero-level set).
+
+    This avoids marching cubes entirely and returns an (N, 3) numpy array of
+    world-space points.
+
+    Args:
+        decoder: DeepSDF decoder model
+        latent_code: Latent code for the shape (1 x latent_dim)
+        resolution: Grid resolution (same as sdf_to_mesh for consistency)
+        bounds: Bounding box (min, max)
+        device: Device for computation
+        batch_size: Batch size for SDF queries
+        threshold: Keep points where |SDF| < threshold.
+                   Defaults to 2 voxel widths if None.
+
+    Returns:
+        (N, 3) float32 numpy array of surface points, or None if empty.
+    """
+    if threshold is None:
+        # Two voxel widths is a robust default that captures the surface shell.
+        voxel_size = (bounds[1] - bounds[0]) / (resolution - 1)
+        threshold = 2.0 * voxel_size
+
+    # Build the same flat grid as sdf_to_mesh.
+    grid_points = torch.linspace(bounds[0], bounds[1], resolution, device=device)
+    grid_x, grid_y, grid_z = torch.meshgrid(grid_points, grid_points, grid_points, indexing='ij')
+    grid_xyz = torch.stack([grid_x, grid_y, grid_z], dim=-1).reshape(-1, 3)
+
+    # Query SDF in batches.
+    sdf_values = []
+    decoder.eval()
+    with torch.no_grad():
+        for i in range(0, len(grid_xyz), batch_size):
+            batch_xyz = grid_xyz[i:i + batch_size]
+            batch_latent = latent_code.expand(len(batch_xyz), -1)
+            batch_sdf = decoder(batch_latent, batch_xyz)
+            sdf_values.append(batch_sdf.squeeze(-1))
+
+    sdf_values = torch.cat(sdf_values, dim=0)
+
+    # Keep only near-surface points.
+    mask = sdf_values.abs() < threshold
+    surface_points = grid_xyz[mask].cpu().numpy()
+
+    if len(surface_points) == 0:
+        print(f"  sdf_to_pointcloud: no points within threshold={threshold:.4f}. "
+              f"SDF range [{sdf_values.min():.4f}, {sdf_values.max():.4f}]")
+        return None
+
+    return surface_points.astype(np.float32)
 
 
 def load_ground_truth_mesh(shape_path: Path, data_root: Path) -> Optional[trimesh.Trimesh]:

@@ -154,6 +154,7 @@ python -m src.deepsdf.evaluate
 
 ```bash
 python -m visualization.visualize_deepsdf
+python -m visualization.visualize_deepsdf --pointcloud
 ```
 
 ## References
