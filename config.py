@@ -45,7 +45,7 @@ DEEPSDF_SETTINGS = {
     "far_field_distance_threshold": 0.08,  # Treat far points as outside when sign confidence is low
     "num_views": 100,               # Number of virtual camera views
     "bounding_cube_dim": 2.0,       # Bounding cube dimension
-    "objects_per_category": 50,      # Max objects to preprocess per category (None = all)
+    "objects_per_category": 10,      # Max objects to preprocess per category (None = all)
     "random_seed": 42,              # Seed for reproducible object selection
 }
 
