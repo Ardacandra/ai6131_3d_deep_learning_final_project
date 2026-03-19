@@ -311,6 +311,102 @@ def plot_spatial_distribution(pos_data: np.ndarray, neg_data: np.ndarray):
     return fig
 
 
+def find_all_npz_files(data_dir: Path) -> list:
+    """
+    Recursively find all NPZ files in the data directory.
+    
+    Args:
+        data_dir: Path to the data directory (e.g., data/shapenet_sdf)
+        
+    Returns:
+        List of paths to NPZ files
+    """
+    npz_files = list(data_dir.rglob('*.npz'))
+    return sorted(npz_files)
+
+
+def visualize_single_object(npz_path: Path, output_dir: Path, args):
+    """
+    Visualize a single object's SDF data.
+    
+    Args:
+        npz_path: Path to the NPZ file
+        output_dir: Base output directory
+        args: Parsed arguments
+    """
+    try:
+        logger.info(f"Processing: {npz_path}")
+        pos_data, neg_data = load_sdf_data(str(npz_path))
+        
+        # Print statistics
+        print_statistics(pos_data, neg_data)
+        
+        # Create object-specific output directory
+        obj_output_dir = output_dir / npz_path.parent.name
+        obj_output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Plot 1: SDF Distribution
+        fig1 = plot_sdf_distribution(pos_data, neg_data)
+        fig1.savefig(obj_output_dir / 'sdf_distribution.png', dpi=150, bbox_inches='tight')
+        plt.close(fig1)
+        
+        # Plot 2: 3D Scatter
+        if args.interactive and HAS_PLOTLY:
+            fig2 = plot_3d_scatter_plotly(pos_data, neg_data)
+            fig2.write_html(obj_output_dir / '3d_scatter_interactive.html')
+        else:
+            fig2 = plot_3d_scatter_matplotlib(pos_data, neg_data)
+            fig2.savefig(obj_output_dir / '3d_scatter.png', dpi=150, bbox_inches='tight')
+        plt.close(fig2)
+        
+        # Plot 3: Spatial Distribution
+        fig3 = plot_spatial_distribution(pos_data, neg_data)
+        fig3.savefig(obj_output_dir / 'spatial_distribution.png', dpi=150, bbox_inches='tight')
+        plt.close(fig3)
+        
+        logger.info(f"✅ Saved visualizations to {obj_output_dir}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to process {npz_path}: {e}")
+        return False
+
+
+def visualize_all_objects(data_dir: Path, output_dir: Path, args):
+    """
+    Visualize all objects in the dataset.
+    
+    Args:
+        data_dir: Path to the data directory (e.g., data/shapenet_sdf)
+        output_dir: Base output directory for all visualizations
+        args: Parsed arguments
+    """
+    npz_files = find_all_npz_files(data_dir)
+    
+    if not npz_files:
+        logger.error(f"No NPZ files found in {data_dir}")
+        return
+    
+    logger.info(f"Found {len(npz_files)} NPZ files to process")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    successful = 0
+    failed = 0
+    
+    for i, npz_path in enumerate(npz_files, 1):
+        logger.info(f"\n[{i}/{len(npz_files)}]")
+        if visualize_single_object(npz_path, output_dir, args):
+            successful += 1
+        else:
+            failed += 1
+    
+    logger.info(f"\n{'='*70}")
+    logger.info(f"Batch Processing Complete!")
+    logger.info(f"✅ Successful: {successful}/{len(npz_files)}")
+    logger.info(f"❌ Failed: {failed}/{len(npz_files)}")
+    logger.info(f"Output directory: {output_dir}")
+    logger.info(f"{'='*70}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Visualize DeepSDF preprocessing results',
@@ -318,19 +414,32 @@ def main():
         epilog="""
 Examples:
   # Visualize a specific mesh
-    python -m visualization.visualize_sdf data/shapenet_sdf/02747177/24884ef01e9a3832d2b12aa6a0f050b3/sdf.npz
+    python -m visualization.visualize_sdf data/shapenet_sdf/02691156/a799568755357be8a07b3b853565360b/sdf.npz
   
   # Interactive viewing (requires plotly)
-    python -m visualization.visualize_sdf data/shapenet_sdf/02747177/24884ef01e9a3832d2b12aa6a0f050b3/sdf.npz --interactive
+    python -m visualization.visualize_sdf data/shapenet_sdf/02691156/a799568755357be8a07b3b853565360b/sdf.npz --interactive
   
   # Save plots to disk
-    python -m visualization.visualize_sdf data/shapenet_sdf/02747177/24884ef01e9a3832d2b12aa6a0f050b3/sdf.npz --save ./out/viz/
+    python -m visualization.visualize_sdf data/shapenet_sdf/02691156/a799568755357be8a07b3b853565360b/sdf.npz --save ./out/viz/
+  
+  # Visualize all objects in data/shapenet_sdf
+    python -m visualization.visualize_sdf --all data/shapenet_sdf
+  
+  # Visualize all objects and save with interactive plots
+    python -m visualization.visualize_sdf --all data/shapenet_sdf --interactive --save ./out/all_viz/
         """
     )
     
     parser.add_argument(
         'npz_file',
-        help='Path to NPZ file containing SDF data'
+        nargs='?',
+        help='Path to NPZ file containing SDF data (optional if --all is used)'
+    )
+    
+    parser.add_argument(
+        '--all',
+        action='store_true',
+        help='Process all objects in data directory (expects directory path instead of NPZ file)'
     )
     
     parser.add_argument(
@@ -348,58 +457,77 @@ Examples:
     
     args = parser.parse_args()
     
-    # Validate file
-    npz_path = Path(args.npz_file)
-    if not npz_path.exists():
-        logger.error(f"File not found: {npz_path}")
-        return
-    
-    logger.info(f"Loading SDF data from {npz_path}...")
-    pos_data, neg_data = load_sdf_data(str(npz_path))
-    
-    # Print statistics
-    print_statistics(pos_data, neg_data)
-    
-    # Create output directory if saving
-    output_dir = Path(args.save)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Plot 1: SDF Distribution
-    logger.info("Creating SDF distribution plots...")
-    fig1 = plot_sdf_distribution(pos_data, neg_data)
-    if args.save:
-        fig1.savefig(Path(args.save) / 'sdf_distribution.png', dpi=150, bbox_inches='tight')
-        logger.info(f"Saved: {Path(args.save) / 'sdf_distribution.png'}")
+    # Handle --all mode
+    if args.all:
+        if not args.npz_file:
+            logger.error("Please specify the data directory path when using --all")
+            return
+        
+        data_dir = Path(args.npz_file)
+        if not data_dir.exists() or not data_dir.is_dir():
+            logger.error(f"Directory not found: {data_dir}")
+            return
+        
+        output_dir = Path(args.save)
+        visualize_all_objects(data_dir, output_dir, args)
     else:
-        plt.show()
-    
-    # Plot 2: 3D Scatter
-    logger.info("Creating 3D point cloud visualization...")
-    if args.interactive and HAS_PLOTLY:
-        fig2 = plot_3d_scatter_plotly(pos_data, neg_data)
+        # Handle single file mode
+        if not args.npz_file:
+            logger.error("Please specify an NPZ file path or use --all for batch processing")
+            parser.print_help()
+            return
+        
+        npz_path = Path(args.npz_file)
+        if not npz_path.exists():
+            logger.error(f"File not found: {npz_path}")
+            return
+        
+        logger.info(f"Loading SDF data from {npz_path}...")
+        pos_data, neg_data = load_sdf_data(str(npz_path))
+        
+        # Print statistics
+        print_statistics(pos_data, neg_data)
+        
+        # Create output directory if saving
+        output_dir = Path(args.save)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Plot 1: SDF Distribution
+        logger.info("Creating SDF distribution plots...")
+        fig1 = plot_sdf_distribution(pos_data, neg_data)
         if args.save:
-            fig2.write_html(Path(args.save) / '3d_scatter_interactive.html')
-            logger.info(f"Saved: {Path(args.save) / '3d_scatter_interactive.html'}")
-        else:
-            fig2.show()
-    else:
-        fig2 = plot_3d_scatter_matplotlib(pos_data, neg_data)
-        if args.save:
-            fig2.savefig(Path(args.save) / '3d_scatter.png', dpi=150, bbox_inches='tight')
-            logger.info(f"Saved: {Path(args.save) / '3d_scatter.png'}")
+            fig1.savefig(Path(args.save) / 'sdf_distribution.png', dpi=150, bbox_inches='tight')
+            logger.info(f"Saved: {Path(args.save) / 'sdf_distribution.png'}")
         else:
             plt.show()
-    
-    # Plot 3: Spatial Distribution
-    logger.info("Creating spatial distribution plots...")
-    fig3 = plot_spatial_distribution(pos_data, neg_data)
-    if args.save:
-        fig3.savefig(Path(args.save) / 'spatial_distribution.png', dpi=150, bbox_inches='tight')
-        logger.info(f"Saved: {Path(args.save) / 'spatial_distribution.png'}")
-    else:
-        plt.show()
-    
-    logger.info("✅ Visualization complete!")
+        
+        # Plot 2: 3D Scatter
+        logger.info("Creating 3D point cloud visualization...")
+        if args.interactive and HAS_PLOTLY:
+            fig2 = plot_3d_scatter_plotly(pos_data, neg_data)
+            if args.save:
+                fig2.write_html(Path(args.save) / '3d_scatter_interactive.html')
+                logger.info(f"Saved: {Path(args.save) / '3d_scatter_interactive.html'}")
+            else:
+                fig2.show()
+        else:
+            fig2 = plot_3d_scatter_matplotlib(pos_data, neg_data)
+            if args.save:
+                fig2.savefig(Path(args.save) / '3d_scatter.png', dpi=150, bbox_inches='tight')
+                logger.info(f"Saved: {Path(args.save) / '3d_scatter.png'}")
+            else:
+                plt.show()
+        
+        # Plot 3: Spatial Distribution
+        logger.info("Creating spatial distribution plots...")
+        fig3 = plot_spatial_distribution(pos_data, neg_data)
+        if args.save:
+            fig3.savefig(Path(args.save) / 'spatial_distribution.png', dpi=150, bbox_inches='tight')
+            logger.info(f"Saved: {Path(args.save) / 'spatial_distribution.png'}")
+        else:
+            plt.show()
+        
+        logger.info("✅ Visualization complete!")
 
 
 if __name__ == '__main__':
