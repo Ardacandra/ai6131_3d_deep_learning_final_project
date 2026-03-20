@@ -45,8 +45,31 @@ DEEPSDF_SETTINGS = {
     "far_field_distance_threshold": 0.08,  # Treat far points as outside when sign confidence is low
     "num_views": 100,               # Number of virtual camera views
     "bounding_cube_dim": 2.0,       # Bounding cube dimension
-    "objects_per_category": 10,      # Max objects to preprocess per category (None = all)
+    "objects_per_category": 3,      # Max objects to preprocess per category (None = all)
     "random_seed": 42,              # Seed for reproducible object selection
+    # Optional manual selection of exact model IDs per category.
+    # If a category has a non-empty list here, preprocessing will use only those IDs
+    # for that category (in the order provided) and ignore objects_per_category.
+    "selected_model_ids": {
+        # airplane
+        "02691156": [
+            "fc0097a6ad81e5cc1c2daaaceea98731",
+            "d605a53c0917acada80799ffaf21ea7d",
+            "b4a420a55d3db8aca89fa467f217f46",
+        ],
+        # chair
+        "03001627": [
+            "5283a98b5c693e64ebefe6b1d594ad2e",
+            "c4af5a5858b4f40082db9fca4b68095",
+            "5df875e6f0cc0e37f838a2212356e267",
+        ],
+        # table
+        "04379243": [
+            "dd0521f27114171e492d9da2668ec34c",
+            "6ae63bfca4db6e42937c609387f975a5",
+            "696beb1883be838cc955e5ed03ef3a2f",
+        ]
+    },
 }
 
 # DeepSDF dataset defaults
@@ -77,12 +100,12 @@ DEEPSDF_TRAINING = {
     "hidden_size": 512,
     "lr": 5e-4,
     "random_seed": 42,
-    "epochs": 4000,
+    "epochs": 2000,
     "batch_points": 32768,
     "samples_per_scene": 8192,
     "scenes_per_batch": 10,
     "batch_split": 1,
-    "clamp_dist": 0.1,
+    "clamp_dist": 1.0,
     "code_regularization": True,
     "code_regularization_lambda": 1e-5,
     "code_bound": 1.0,

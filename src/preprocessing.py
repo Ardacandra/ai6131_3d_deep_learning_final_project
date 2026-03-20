@@ -525,6 +525,7 @@ class DeepSDFPreprocessor:
         category: Optional[str] = None,
         objects_per_category: Optional[int] = None,
         random_seed: Optional[int] = None,
+        selected_model_ids: Optional[Dict[str, List[str]]] = None,
     ) -> dict:
         """
         Preprocess entire dataset.
@@ -542,6 +543,9 @@ class DeepSDFPreprocessor:
             objects_per_category: Max objects to preprocess per category.
                 ``None`` (default) processes every available model.
             random_seed: Seed for reproducible object selection.
+            selected_model_ids: Optional mapping of category_id -> ordered list of
+                model IDs to preprocess. When provided for a category, this manual
+                selection takes precedence over ``objects_per_category``.
 
         Returns:
             Dictionary with overall statistics
@@ -551,6 +555,12 @@ class DeepSDFPreprocessor:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         rng = np.random.default_rng(random_seed)
+        selected_model_ids = (
+            selected_model_ids
+            if selected_model_ids is not None
+            else DEEPSDF_SETTINGS.get("selected_model_ids", {})
+        )
+        selected_model_ids = selected_model_ids or {}
 
         all_stats = []
         selected_by_category: Dict[str, List[str]] = {}
@@ -590,11 +600,25 @@ class DeepSDFPreprocessor:
         for category_name, available_models in category_models.items():
             selected_successful_ids: List[str] = []
             target_count = objects_per_category
+            manual_ids = selected_model_ids.get(category_name, [])
 
             # Keep deterministic selection order when a seed is provided.
             # If no seed is provided, keep sorted filesystem order.
             models = list(available_models)
-            if random_seed is not None:
+            if manual_ids:
+                by_model_id = {model_id: (model_id, obj_file) for model_id, obj_file in models}
+                missing_ids = [model_id for model_id in manual_ids if model_id not in by_model_id]
+                if missing_ids:
+                    logger.warning(
+                        "Category %s has %d requested model IDs not found: %s",
+                        category_name,
+                        len(missing_ids),
+                        ", ".join(missing_ids),
+                    )
+
+                models = [by_model_id[model_id] for model_id in manual_ids if model_id in by_model_id]
+                target_count = len(models)
+            elif random_seed is not None:
                 perm = rng.permutation(len(models))
                 models = [models[idx] for idx in perm]
 
