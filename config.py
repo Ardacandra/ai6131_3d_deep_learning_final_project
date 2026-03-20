@@ -53,20 +53,20 @@ DEEPSDF_SETTINGS = {
     "selected_model_ids": {
         # airplane
         "02691156": [
-            "fc0097a6ad81e5cc1c2daaaceea98731",
-            "d605a53c0917acada80799ffaf21ea7d",
             "b4a420a55d3db8aca89fa467f217f46",
+            "3af52163a2d0551d91637951367b1518",
+            "6e4570ef29d420e17099115060cea9b5",
         ],
         # chair
         "03001627": [
             "5283a98b5c693e64ebefe6b1d594ad2e",
-            "c4af5a5858b4f40082db9fca4b68095",
+            "c747e6ceb1a6faaa3074f48b99186254",
             "5df875e6f0cc0e37f838a2212356e267",
         ],
         # table
         "04379243": [
-            "dd0521f27114171e492d9da2668ec34c",
-            "6ae63bfca4db6e42937c609387f975a5",
+            "e08d1cd0dc7dc73db9d7c2fc41e80228",
+            "fff492e352c8cb336240c88cd4684446",
             "696beb1883be838cc955e5ed03ef3a2f",
         ]
     },
