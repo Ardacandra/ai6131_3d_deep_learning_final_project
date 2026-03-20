@@ -37,12 +37,12 @@ DEEPSDF_SETTINGS = {
     "near_surface_ratio": 47.0 / 50.0,  # Fraction of total samples that are near-surface (47:3 from DeepSDF paper)
     "output_format": "npz",         # Output format: "npz" or "npy"
     "output_dir": Path("./data/shapenet_sdf/"),  # Output directory for SDF data
-    "num_votes": 11,                # Number of neighbors for SDF voting
-    "sign_ambiguity_threshold": 1e-4,  # Fallback threshold for ambiguous local sign votes
-    "sign_vote_consensus_threshold": 0.35,  # Require consistent neighbor vote polarity for confident sign
-    "use_contains_sign_fallback": True,  # Use mesh.contains for ambiguous signs on watertight meshes
-    "contains_batch_size": 8192,     # Batch size for optional mesh.contains fallback
-    "far_field_distance_threshold": 0.08,  # Treat far points as outside when sign confidence is low
+    "num_votes": 21,                # Number of neighbors for SDF voting (higher → fewer flip errors)
+    "sign_ambiguity_threshold": 5e-4,  # Fallback threshold for ambiguous local sign votes
+    "sign_vote_consensus_threshold": 0.65,  # Require stronger consensus before trusting projection sign
+    "use_contains_sign_fallback": True,  # Use mesh.contains for sign assignment on watertight meshes
+    "contains_batch_size": 8192,     # Batch size for mesh.contains calls
+    "far_field_distance_threshold": 0.05,  # Treat far points as outside when sign confidence is low
     "num_views": 100,               # Number of virtual camera views
     "bounding_cube_dim": 2.0,       # Bounding cube dimension
     "objects_per_category": 3,      # Max objects to preprocess per category (None = all)

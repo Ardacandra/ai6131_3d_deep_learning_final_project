@@ -115,41 +115,11 @@ class SurfaceSampler:
         num_samples = num_samples or DEEPSDF_SETTINGS["num_spatial_samples"]
         logger.info(f"Sampling {num_samples} surface points with proper orientation...")
         
-        # Get virtual camera positions
-        views = self.get_equidistant_sphere_points()
-        
-        # For each face, estimate an outward normal from view voting.
-        face_normals = np.zeros_like(self.mesh.face_normals)
-        
-        for face_idx in range(len(self.mesh.faces)):
-            face = self.mesh.faces[face_idx]
-            v0, v1, v2 = self.mesh.vertices[face]
-            
-            # Compute face normal using right-hand rule
-            normal = np.cross(v1 - v0, v2 - v0)
-            normal_length = np.linalg.norm(normal)
-            if normal_length > 1e-8:
-                normal = normal / normal_length
-            else:
-                normal = np.array([0., 0., 1.])  # Fallback for degenerate faces
-            
-            # Majority voting: count how many views see this normal as front-facing
-            # Front-facing means dot(normal, view_direction) > 0
-            front_facing_votes = 0
-            face_center = (v0 + v1 + v2) / 3.0
-            
-            for view in views:
-                view_dir = (view - face_center) / (np.linalg.norm(view - face_center) + 1e-8)
-                dot_product = np.dot(normal, view_dir)
-                
-                if dot_product > 0:  # Normal points towards this view (outward)
-                    front_facing_votes += 1
-            
-            # If majority of views see it as back-facing, flip the normal
-            if front_facing_votes < len(views) // 2:
-                normal = -normal
-            
-            face_normals[face_idx] = normal
+        # Use trimesh's precomputed face normals.  After fix_normals() in
+        # preprocess_mesh these are consistently outward-facing for watertight
+        # meshes.  A vectorised radial-alignment check reduces residual errors
+        # on non-watertight geometry without a slow per-face Python loop.
+        face_normals = self.mesh.face_normals.copy()
 
         # Sanity check global orientation: after normalization around origin,
         # outward normals should generally point away from the center.
@@ -158,41 +128,33 @@ class SurfaceSampler:
         if np.median(radial_alignment) < 0.0:
             face_normals = -face_normals
             logger.debug("Flipped face normals globally to enforce outward orientation")
-        
-        # Sample points from surface weighted by triangle area
-        area_list = []
-        for face_idx, face in enumerate(self.mesh.faces):
-            v0, v1, v2 = self.mesh.vertices[face]
-            area = 0.5 * np.linalg.norm(np.cross(v1 - v0, v2 - v0))
-            area_list.append(area)
-        
-        area_list = np.array(area_list)
+
+        # Sample triangles weighted by area (vectorised).
+        area_list = self.mesh.area_faces
         area_list = area_list / area_list.sum()
-        
-        # Sample triangles according to area
+
         sampled_face_indices = np.random.choice(
-            len(self.mesh.faces), 
-            size=num_samples, 
-            p=area_list
+            len(self.mesh.faces),
+            size=num_samples,
+            p=area_list,
         )
-        
-        surface_points = []
-        surface_normals_list = []
-        
-        for face_idx in sampled_face_indices:
-            face = self.mesh.faces[face_idx]
-            v0, v1, v2 = self.mesh.vertices[face]
-            
-            # Random barycentric coordinates
-            r1, r2 = np.random.rand(2)
-            if r1 + r2 > 1:
-                r1, r2 = 1 - r1, 1 - r2
-            
-            point = (1 - r1 - r2) * v0 + r1 * v1 + r2 * v2
-            surface_points.append(point)
-            surface_normals_list.append(face_normals[face_idx])
-        
-        return np.array(surface_points), np.array(surface_normals_list)
+
+        # Vectorised barycentric point sampling.
+        r1 = np.random.rand(num_samples)
+        r2 = np.random.rand(num_samples)
+        flip = r1 + r2 > 1.0
+        r1[flip], r2[flip] = 1.0 - r1[flip], 1.0 - r2[flip]
+        r3 = 1.0 - r1 - r2
+
+        tri_verts = self.mesh.vertices[self.mesh.faces[sampled_face_indices]]
+        surface_points = (
+            r3[:, None] * tri_verts[:, 0]
+            + r1[:, None] * tri_verts[:, 1]
+            + r2[:, None] * tri_verts[:, 2]
+        )
+        surface_normals_arr = face_normals[sampled_face_indices]
+
+        return surface_points, surface_normals_arr
 
 
 class SpatialPointSampler:
@@ -353,42 +315,40 @@ class SDFComputer:
         vote_signs[vote_signs == 0.0] = 1.0
         vote_consensus = np.abs(np.sum(vote_signs * weights, axis=1) / weight_sum)
 
+        unsigned_distance = distances[:, 0]
+
+        # For watertight meshes, mesh.contains is the most reliable sign oracle.
+        # Applying it to ALL spatial points eliminates both "confidently wrong"
+        # labels that the ambiguity filter cannot catch, and ambiguous ones, in
+        # a single pass.
+        if DEEPSDF_SETTINGS.get("use_contains_sign_fallback", True) and self.mesh_is_watertight:
+            try:
+                contains_batch_size = max(1, int(DEEPSDF_SETTINGS.get("contains_batch_size", 8192)))
+                inside_mask = np.zeros(len(spatial_points), dtype=bool)
+                for start in range(0, len(spatial_points), contains_batch_size):
+                    end = start + contains_batch_size
+                    inside_mask[start:end] = self.mesh.contains(spatial_points[start:end])
+                signs = np.where(inside_mask, -1.0, 1.0)
+                return (signs * unsigned_distance).astype(np.float32)
+            except Exception as exc:
+                logger.debug("mesh.contains unavailable for full sign pass: %s", exc)
+
+        # Fallback for non-watertight meshes: local normal-projection voting
+        # with ambiguity resolution.
         nearest_projection = projected_distances[:, 0]
         sign_source = weighted_projection.copy()
         ambiguity_threshold = DEEPSDF_SETTINGS["sign_ambiguity_threshold"]
         consensus_threshold = DEEPSDF_SETTINGS["sign_vote_consensus_threshold"]
         ambiguous = (np.abs(sign_source) < ambiguity_threshold) | (vote_consensus < consensus_threshold)
 
-        unsigned_distance = distances[:, 0]
-
         if np.any(ambiguous):
             ambiguous_idx = np.where(ambiguous)[0]
-
-            used_contains_fallback = False
-            if DEEPSDF_SETTINGS.get("use_contains_sign_fallback", True) and self.mesh_is_watertight:
-                try:
-                    contains_batch_size = int(DEEPSDF_SETTINGS.get("contains_batch_size", 8192))
-                    contains_batch_size = max(1, contains_batch_size)
-                    ambiguous_points = spatial_points[ambiguous_idx]
-                    inside_mask = np.zeros(len(ambiguous_points), dtype=bool)
-
-                    for start in range(0, len(ambiguous_points), contains_batch_size):
-                        end = start + contains_batch_size
-                        inside_mask[start:end] = self.mesh.contains(ambiguous_points[start:end])
-
-                    sign_source[ambiguous_idx] = np.where(inside_mask, -1.0, 1.0)
-                    used_contains_fallback = True
-                except Exception as exc:
-                    logger.debug("mesh.contains fallback unavailable: %s", exc)
-
-            if not used_contains_fallback:
-                far_field_threshold = DEEPSDF_SETTINGS.get("far_field_distance_threshold", 0.08)
-                far_mask = unsigned_distance[ambiguous_idx] > far_field_threshold
-                if np.any(far_mask):
-                    sign_source[ambiguous_idx[far_mask]] = 1.0
-
-                unresolved_idx = ambiguous_idx[~far_mask]
-                sign_source[unresolved_idx] = nearest_projection[unresolved_idx]
+            far_field_threshold = DEEPSDF_SETTINGS.get("far_field_distance_threshold", 0.05)
+            far_mask = unsigned_distance[ambiguous_idx] > far_field_threshold
+            if np.any(far_mask):
+                sign_source[ambiguous_idx[far_mask]] = 1.0
+            unresolved_idx = ambiguous_idx[~far_mask]
+            sign_source[unresolved_idx] = nearest_projection[unresolved_idx]
 
         signs = np.where(sign_source < 0.0, -1.0, 1.0)
 
@@ -451,12 +411,19 @@ class DeepSDFPreprocessor:
         mesh = trimesh.load(mesh_path)
         if not isinstance(mesh, trimesh.Trimesh):
             raise ValueError(f"Could not load mesh from {mesh_path}")
-        
+
+        # Repair mesh geometry and fix normal orientation before any sampling.
+        # fix_normals() ensures consistent outward-facing normals for watertight
+        # meshes, which directly improves both the offset-based near-surface
+        # labels and the normal-projection sign voter.
+        trimesh.repair.fix_normals(mesh)
+
         stats = {
             'input_file': mesh_path,
             'output_file': output_path,
             'num_vertices': len(mesh.vertices),
             'num_faces': len(mesh.faces),
+            'is_watertight': bool(mesh.is_watertight),
         }
         
         # Normalize mesh
@@ -481,6 +448,27 @@ class DeepSDFPreprocessor:
             primary_variance=self.surface_variance,
             secondary_variance=self.surface_variance_secondary,
         )
+
+        # For watertight meshes, override the offset-based near-surface signs
+        # with mesh.contains to correct any residual flipped-normal artefacts.
+        if mesh.is_watertight and DEEPSDF_SETTINGS.get("use_contains_sign_fallback", True):
+            try:
+                contains_batch_size = max(1, int(DEEPSDF_SETTINGS.get("contains_batch_size", 8192)))
+                inside_mask = np.zeros(len(near_surface_points), dtype=bool)
+                for start in range(0, len(near_surface_points), contains_batch_size):
+                    end = start + contains_batch_size
+                    inside_mask[start:end] = mesh.contains(near_surface_points[start:end])
+                corrected = np.where(
+                    inside_mask,
+                    -np.abs(near_surface_sdf),
+                    np.abs(near_surface_sdf),
+                ).astype(np.float32)
+                n_flipped = int(np.sum(np.sign(corrected) != np.sign(near_surface_sdf)))
+                if n_flipped:
+                    logger.debug("Near-surface sign correction: flipped %d / %d labels", n_flipped, len(near_surface_sdf))
+                near_surface_sdf = corrected
+            except Exception as exc:
+                logger.debug("mesh.contains near-surface sign correction failed: %s", exc)
 
         random_points = SpatialPointSampler.sample_random_cube(num_random)
 
