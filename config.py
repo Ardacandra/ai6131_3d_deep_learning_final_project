@@ -137,3 +137,72 @@ DEEPSDF_EVALUATION = {
     "output_file": Path("./out/deepsdf/deepsdf_evaluation_results.json"),  # Output file for detailed results
     "percentile": 90.0,  # Percentile for mesh accuracy metric
 }
+
+# VQ-DeepSDF model defaults (kept separate from baseline DeepSDF settings)
+DEEPSDF_VQ_MODEL = {
+    "latent_size": 256,
+    "hidden_size": 512,
+    "num_layers": 8,
+    "dims": None,
+    "dropout": None,
+    "dropout_prob": 0.0,
+    "norm_layers": (),
+    "latent_in": [4],
+    "weight_norm": True,
+    "xyz_in_all": False,
+    "use_tanh": False,
+    "latent_dropout": False,
+    # VQ bottleneck settings
+    "num_codebooks": 16,
+    "codebook_size": 512,
+    "code_dim": 16,
+    "codebook_init_scale": 0.1,
+}
+
+# VQ-DeepSDF training defaults
+DEEPSDF_VQ_TRAINING = {
+    "data_root": Path("./data/shapenet_sdf"),
+    "latent_size": 256,
+    "hidden_size": 512,
+    "lr": 5e-4,
+    "random_seed": 42,
+    "epochs": 2000,
+    "batch_points": 32768,
+    "samples_per_scene": 8192,
+    "scenes_per_batch": 10,
+    "batch_split": 1,
+    "clamp_dist": 1.0,
+    "grad_clip_norm": 1.0,
+    "log_frequency": 10,
+    "snapshot_frequency": 500,
+    "additional_snapshots": [],
+    # VQ losses
+    "commitment_weight": 0.25,
+    "codebook_weight": 1.0,
+    "entropy_weight": 1e-3,
+    # Shape-latent initialization before quantization
+    "shape_latent_init_stddev": 1.0,
+    "shape_latent_bound": 1.0,
+    "lr_schedules": [
+        {
+            "type": "step",
+            "initial": 5e-4,
+            "interval": 500,
+            "factor": 0.5,
+        }
+    ],
+    "save_dir": Path("./out/deepsdf_vq"),
+}
+
+# VQ-DeepSDF evaluation defaults
+DEEPSDF_VQ_EVALUATION = {
+    "checkpoint": Path("./out/deepsdf_vq/deepsdf_vq_latest.pth"),
+    "data_root": Path("./data/shapenet_sdf"),
+    "gt_data_root": Path("./data/shapenet_v2_subset"),
+    "resolution": 128,
+    "num_sample_points": 10000,
+    "batch_size": 32768,
+    "max_shapes": None,
+    "output_file": Path("./out/deepsdf_vq/deepsdf_vq_evaluation_results.json"),
+    "percentile": 90.0,
+}
