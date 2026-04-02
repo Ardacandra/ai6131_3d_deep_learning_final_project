@@ -28,6 +28,16 @@ def _validate_vq_dims(latent_size: int, num_codebooks: int, code_dim: int) -> No
         )
 
 
+def _validate_decoder_dims(latent_size: int, hidden_size: int) -> None:
+    min_hidden = latent_size + 4
+    if hidden_size < min_hidden:
+        raise ValueError(
+            "Invalid decoder width for VQ-DeepSDF: "
+            f"hidden_size={hidden_size} is too small for latent_size={latent_size}. "
+            f"Use hidden_size >= {min_hidden}."
+        )
+
+
 def _compute_shape_indices(shape_latents: torch.nn.Embedding, quantizer: GroupedVectorQuantizer) -> torch.Tensor:
     with torch.no_grad():
         return quantizer.encode_indices(shape_latents.weight.data)
@@ -61,6 +71,7 @@ def train_vq_autodecoder(
     codebook_size = DEEPSDF_VQ_MODEL["codebook_size"]
     code_dim = DEEPSDF_VQ_MODEL["code_dim"]
     _validate_vq_dims(latent_size, num_codebooks, code_dim)
+    _validate_decoder_dims(latent_size, hidden_size)
 
     decoder = DeepSDFDecoder(latent_size=latent_size, hidden_size=hidden_size).to(device)
     quantizer = GroupedVectorQuantizer(
