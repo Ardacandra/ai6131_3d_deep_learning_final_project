@@ -157,6 +157,42 @@ python -m visualization.visualize_deepsdf
 python -m visualization.visualize_deepsdf --pointcloud
 ```
 
+## VQ-DeepSDF
+
+VQ-DeepSDF replaces the continuous per-shape latent codes of the baseline with a **grouped vector-quantized** bottleneck (`GroupedVectorQuantizer` in `src/deepsdf_vq/quantizer.py`). Each shape latent is quantized into `num_codebooks` discrete codes drawn from a shared codebook, enabling a compact discrete shape representation.
+
+### Overview
+
+- **Same decoder architecture** as baseline DeepSDF
+- **Quantized latents** — shape embeddings are snapped to the nearest codebook entry per group before being passed to the decoder
+- **Three-part loss** — reconstruction (clamped L1) + commitment loss + codebook loss, with an optional entropy regularization term
+- **Same SDF data** — uses the same `./data/shapenet_sdf/` NPZ files produced by `prepare_deepsdf.py`
+
+Default VQ settings (in `config.py`): `num_codebooks=16`, `codebook_size=512`, `code_dim=16`, `latent_size=256` (`num_codebooks × code_dim`).
+
+### Running VQ-DeepSDF Training
+
+```bash
+python -m src.deepsdf_vq.train
+```
+
+### Running VQ-DeepSDF Evaluation
+
+Computes the same five metrics as the baseline evaluation:
+
+```bash
+python -m src.deepsdf_vq.evaluate
+```
+
+### VQ-DeepSDF Output Visualization
+
+In addition to mesh/point-cloud reconstructions, this script also produces codebook usage bar charts, a shape × codebook-group index heatmap, and training loss curves:
+
+```bash
+python -m visualization.visualize_deepsdf_vq
+python -m visualization.visualize_deepsdf_vq --pointcloud
+```
+
 ## References
 
 ### DeepSDF
