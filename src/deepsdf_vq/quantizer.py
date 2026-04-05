@@ -68,8 +68,8 @@ class GroupedVectorQuantizer(nn.Module):
                 f"expected {self.num_codebooks}, got {indices.size(1)}"
             )
 
-        gather_index = indices.unsqueeze(-1).expand(-1, -1, self.code_dim)
-        quantized = torch.gather(self.codebook, dim=1, index=gather_index)
+        group_idx = torch.arange(self.num_codebooks, device=indices.device).unsqueeze(0).expand(indices.size(0), -1)
+        quantized = self.codebook[group_idx, indices]  # [B, G, D]
         return quantized.reshape(indices.size(0), self.latent_size)
 
     def forward(self, z: torch.Tensor) -> VQOutput:
@@ -79,8 +79,8 @@ class GroupedVectorQuantizer(nn.Module):
         )
         indices = torch.argmin(distances, dim=-1)
 
-        gather_index = indices.unsqueeze(-1).expand(-1, -1, self.code_dim)
-        z_q_groups = torch.gather(self.codebook, dim=1, index=gather_index)
+        group_idx = torch.arange(self.num_codebooks, device=indices.device).unsqueeze(0).expand(indices.size(0), -1)
+        z_q_groups = self.codebook[group_idx, indices]  # [B, G, D]
 
         commitment_loss = F.mse_loss(z_groups, z_q_groups.detach())
         codebook_loss = F.mse_loss(z_q_groups, z_groups.detach())

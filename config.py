@@ -222,6 +222,19 @@ DEEPSDF_VQ_PRIOR = {
     ],
 }
 
+# VQ-DeepSDF prior evaluation defaults
+DEEPSDF_VQ_PRIOR_EVALUATION = {
+    "prior_checkpoint": Path("./out/deepsdf_vq_prior/prior_latest.pth"),
+    "vq_checkpoint": Path("./out/deepsdf_vq/deepsdf_vq_latest.pth"),
+    "gt_data_root": Path("./data/shapenet_v2_subset"),
+    "n_samples": 50,          # Number of shapes to generate from the prior
+    "temperature": 1.0,       # Sampling temperature
+    "resolution": 128,        # Marching cubes resolution
+    "num_sample_points": 10000,
+    "batch_size": 32768,
+    "output_file": Path("./out/deepsdf_vq_prior/prior_evaluation_results.json"),
+}
+
 # VQ-DeepSDF evaluation defaults
 DEEPSDF_VQ_EVALUATION = {
     "checkpoint": Path("./out/deepsdf_vq/deepsdf_vq_latest.pth"),
