@@ -275,14 +275,8 @@ class VQDeepSDFVisualizer:
         ax.set_ylabel("Shape index")
         ax.set_title("Per-shape discrete code assignments (VQ-DeepSDF)", fontsize=12)
 
-        # Annotate y-axis with category/model names when dataset is small enough.
-        if num_shapes <= 30:
-            labels = [
-                f"{Path(p).parent.parent.name}/{Path(p).parent.name}"
-                for p in self.shape_paths[:num_shapes]
-            ]
-            ax.set_yticks(np.arange(num_shapes))
-            ax.set_yticklabels(labels, fontsize=7)
+        ax.set_yticks(np.arange(num_shapes))
+        ax.set_yticklabels(np.arange(1, num_shapes + 1), fontsize=7)
 
         plt.tight_layout()
         out = self.output_dir / "vq_index_heatmap.png"
@@ -338,10 +332,13 @@ class VQDeepSDFVisualizer:
     # Convenience
     # ------------------------------------------------------------------
 
-    def visualize_all(self, resolution: int = 128, pointcloud: bool = False) -> None:
+    def visualize_all(self, resolution: int = 128, pointcloud: bool = False, num_per_category: int = 1) -> None:
         """Run all visualizations: shapes + codebook diagnostics + training curves."""
-        print("\n=== Shape reconstructions ===")
-        self.visualize_multiple(resolution=resolution, pointcloud=pointcloud)
+        print("\n=== Shape reconstructions (mesh) ===")
+        self.visualize_multiple(resolution=resolution, pointcloud=False, num_per_category=num_per_category)
+
+        print("\n=== Shape reconstructions (point cloud) ===")
+        self.visualize_multiple(resolution=resolution, pointcloud=True, num_per_category=num_per_category)
 
         print("\n=== Codebook usage ===")
         self.plot_codebook_usage()
@@ -440,6 +437,7 @@ def main():
         viz.visualize_all(
             resolution=args.resolution,
             pointcloud=args.pointcloud,
+            num_per_category=args.num_per_category,
         )
 
 
