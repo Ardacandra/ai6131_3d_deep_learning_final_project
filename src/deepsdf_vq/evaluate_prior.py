@@ -132,9 +132,32 @@ def _load_quantizer(vq_checkpoint_path: str, meta: Dict, device: str) -> Grouped
     return quantizer
 
 
-def _collect_gt_mesh_paths(gt_data_root: str) -> List[Path]:
-    """Return paths to all model_normalized.obj files under gt_data_root."""
+def _collect_gt_mesh_paths(gt_data_root: str, vq_checkpoint: str) -> List[Path]:
+    """Return GT mesh paths for the shapes in the VQ checkpoint's selected_samples.json.
+
+    Falls back to all shapes under gt_data_root if the manifest is missing.
+    """
+    resolved = _resolve_checkpoint_path(vq_checkpoint)
+    manifest_path = resolved.parent / "selected_samples.json"
+
     root = Path(gt_data_root)
+
+    if manifest_path.exists():
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+        paths = []
+        for shape in manifest.get("shapes", []):
+            # relative_path looks like "02691156/modelid/sdf.npz"
+            parts = Path(shape["relative_path"]).parts
+            if len(parts) >= 2:
+                category_id, model_id = parts[0], parts[1]
+                obj_path = root / category_id / model_id / "models" / "model_normalized.obj"
+                paths.append(obj_path)
+        print(f"Using {len(paths)} shapes from selected_samples.json: {manifest_path}")
+        return paths
+
+    # Fallback: all shapes.
+    print(f"selected_samples.json not found at {manifest_path}; using all shapes under {root}")
     paths = []
     for category_id in SHAPENET_CATEGORIES:
         for obj_path in sorted((root / category_id).glob("*/models/model_normalized.obj")):
@@ -336,7 +359,7 @@ def evaluate_prior(
     print(f"\n{len(valid_gen)}/{n_samples} generated shapes produced valid meshes")
 
     # ---- Load reference shapes ---------------------------------------------
-    gt_paths = _collect_gt_mesh_paths(gt_data_root)
+    gt_paths = _collect_gt_mesh_paths(gt_data_root, vq_checkpoint)
     if not gt_paths:
         raise RuntimeError(f"No ground-truth meshes found under {gt_data_root}")
 
