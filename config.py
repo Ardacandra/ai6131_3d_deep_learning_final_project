@@ -194,6 +194,34 @@ DEEPSDF_VQ_TRAINING = {
     "save_dir": Path("./out/deepsdf_vq"),
 }
 
+# VQ-DeepSDF AR Transformer prior defaults
+DEEPSDF_VQ_PRIOR = {
+    # Architecture
+    "d_model": 256,          # Embedding / model dimension
+    "n_heads": 4,            # Attention heads
+    "n_layers": 3,           # Number of causal transformer layers
+    "ffn_multiplier": 4,     # Feed-forward hidden width = d_model * ffn_multiplier
+    "dropout": 0.4,          # High dropout on attention + FFN to prevent memorisation
+    # Training
+    "lr": 1e-3,
+    "epochs": 2000,
+    "batch_size": 32,        # Number of shapes per batch
+    "random_seed": 42,
+    "grad_clip_norm": 1.0,
+    "log_frequency": 50,
+    "snapshot_frequency": 500,
+    "vq_checkpoint": Path("./out/deepsdf_vq/deepsdf_vq_latest.pth"),
+    "save_dir": Path("./out/deepsdf_vq_prior"),
+    "lr_schedules": [
+        {
+            "type": "step",
+            "initial": 1e-3,
+            "interval": 500,
+            "factor": 0.5,
+        }
+    ],
+}
+
 # VQ-DeepSDF evaluation defaults
 DEEPSDF_VQ_EVALUATION = {
     "checkpoint": Path("./out/deepsdf_vq/deepsdf_vq_latest.pth"),
