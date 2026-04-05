@@ -193,6 +193,28 @@ python -m visualization.visualize_deepsdf_vq
 python -m visualization.visualize_deepsdf_vq --pointcloud
 ```
 
+## Generative Prior (AR Transformer)
+
+A lightweight 3-layer causal Transformer (`src/deepsdf_vq/prior.py`) trained over the discrete VQ token sequences to enable novel shape synthesis. The auto-decoder and codebooks are frozen; only the prior is trained via cross-entropy next-token prediction.
+
+### Training
+
+```bash
+python -m src.deepsdf_vq.train_prior
+```
+
+Checkpoints saved to `out/deepsdf_vq_prior/`.
+
+### Generative Evaluation (MMD / Coverage)
+
+Samples shapes from the prior, reconstructs them via the frozen decoder, and computes MMD-CD, COV-CD, MMD-EMD, COV-EMD against the training reference set. Generated shapes are also saved as PNG renders.
+
+```bash
+python -m src.deepsdf_vq.evaluate_prior
+```
+
+Results saved to `out/deepsdf_vq_prior/prior_evaluation_results.json`. Pass `--no-png` to skip rendering.
+
 ## References
 
 ### DeepSDF
