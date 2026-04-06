@@ -62,6 +62,35 @@ from config import DEEPSDF_VQ_MODEL, DEEPSDF_VQ_PRIOR_EVALUATION, SHAPENET_CATEG
 # PNG rendering helper
 # ---------------------------------------------------------------------------
 
+def _save_pointcloud_png(pts: np.ndarray, index: int, output_dir: Path) -> None:
+    """Render a point cloud from three orthographic views and save as PNG."""
+    lim = float(np.abs(pts).max()) if len(pts) else 1.0
+    max_disp = 20_000
+    if len(pts) > max_disp:
+        pts = pts[np.random.choice(len(pts), max_disp, replace=False)]
+
+    fig = plt.figure(figsize=(15, 5))
+    view_angles = [(30, 45), (30, 135), (90, 0)]
+    view_labels = ["Front", "Side", "Top"]
+
+    for col, (elev, azim) in enumerate(view_angles, start=1):
+        ax = fig.add_subplot(1, 3, col, projection="3d")
+        ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2], c="steelblue", s=1, alpha=0.5)
+        ax.set_xlim([-lim, lim])
+        ax.set_ylim([-lim, lim])
+        ax.set_zlim([-lim, lim])
+        ax.set_xlabel("X"); ax.set_ylabel("Y"); ax.set_zlabel("Z")
+        ax.set_title(view_labels[col - 1], fontsize=10)
+        ax.view_init(elev=elev, azim=azim)
+
+    fig.suptitle(f"Generated shape {index:04d} (point cloud)", fontsize=12, fontweight="bold")
+    plt.tight_layout()
+    out_path = output_dir / f"generated_{index:04d}_pointcloud.png"
+    plt.savefig(str(out_path), dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved point cloud PNG: {out_path}")
+
+
 def _save_mesh_png(mesh, index: int, output_dir: Path) -> None:
     """Render a trimesh.Trimesh from three orthographic views and save as PNG."""
     verts = np.array(mesh.vertices)
@@ -197,9 +226,13 @@ def _sample_generated_pointclouds(
             print(f"  Shape {i}: mesh extraction failed, skipping")
             pointclouds.append(None)
             continue
+        pts = sample_points_from_mesh(mesh, num_sample_points)
         if png_output_dir is not None:
             _save_mesh_png(mesh, i, png_output_dir)
-        pts = sample_points_from_mesh(mesh, num_sample_points)
+            _save_pointcloud_png(pts, i, png_output_dir)
+            obj_path = png_output_dir / f"generated_{i:04d}.obj"
+            mesh.export(str(obj_path))
+            print(f"  Saved mesh OBJ: {obj_path}")
         pointclouds.append(pts)
         print(f"  Shape {i}: {len(pts)} surface points")
 

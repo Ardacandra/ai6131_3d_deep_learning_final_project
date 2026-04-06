@@ -51,8 +51,10 @@ def load_vq_checkpoint(checkpoint_path: str, device: str = "cpu") -> Tuple[DeepS
         codebook_size=codebook_size,
         code_dim=code_dim,
         init_scale=DEEPSDF_VQ_MODEL["codebook_init_scale"],
+        ema_decay=DEEPSDF_VQ_MODEL["ema_decay"],
+        dead_code_threshold=DEEPSDF_VQ_MODEL["dead_code_threshold"],
     ).to(device)
-    quantizer.load_state_dict(ckpt["quantizer_state"])
+    quantizer.load_state_dict(ckpt["quantizer_state"], strict=False)
     quantizer.eval()
 
     if "shape_code_indices" in ckpt:

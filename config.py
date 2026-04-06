@@ -154,9 +154,12 @@ DEEPSDF_VQ_MODEL = {
     "latent_dropout": False,
     # VQ bottleneck settings
     "num_codebooks": 16,
-    "codebook_size": 512,
+    "codebook_size": 24,
     "code_dim": 16,
     "codebook_init_scale": 0.1,
+    # EMA codebook update settings
+    "ema_decay": 0.99,           # Decay factor for cluster-size and embed-sum EMAs
+    "dead_code_threshold": 1.0,  # Codes with EMA cluster size below this are reset
 }
 
 # VQ-DeepSDF training defaults

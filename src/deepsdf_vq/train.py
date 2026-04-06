@@ -79,6 +79,8 @@ def train_vq_autodecoder(
         codebook_size=codebook_size,
         code_dim=code_dim,
         init_scale=DEEPSDF_VQ_MODEL["codebook_init_scale"],
+        ema_decay=DEEPSDF_VQ_MODEL["ema_decay"],
+        dead_code_threshold=DEEPSDF_VQ_MODEL["dead_code_threshold"],
     ).to(device)
 
     shape_latent_bound = DEEPSDF_VQ_TRAINING["shape_latent_bound"]
@@ -159,7 +161,7 @@ def train_vq_autodecoder(
             try:
                 ckpt = torch.load(latest_ckpt, map_location=device)
                 decoder.load_state_dict(ckpt["decoder_state"])
-                quantizer.load_state_dict(ckpt["quantizer_state"])
+                quantizer.load_state_dict(ckpt["quantizer_state"], strict=False)
                 shape_latents.weight.data = torch.from_numpy(ckpt["shape_latents"]).to(device)
                 optimizer.load_state_dict(ckpt["optimizer"])
                 start_epoch = ckpt["epoch"] + 1
