@@ -238,6 +238,18 @@ DEEPSDF_VQ_PRIOR_EVALUATION = {
     "output_file": Path("./out/deepsdf_vq_prior/prior_evaluation_results.json"),
 }
 
+# VQ-DeepSDF Gaussian baseline evaluation defaults
+DEEPSDF_VQ_GAUSSIAN_BASELINE_EVALUATION = {
+    "vq_checkpoint": Path("./out/deepsdf_vq/deepsdf_vq_latest.pth"),
+    "gt_data_root": Path("./data/shapenet_v2_subset"),
+    "n_samples": 50,          # Number of shapes to generate
+    "std": 1.0,               # Standard deviation of the Gaussian noise
+    "resolution": 128,        # Marching cubes resolution
+    "num_sample_points": 10000,
+    "batch_size": 32768,
+    "output_file": Path("./out/deepsdf_vq_gaussian_baseline/gaussian_baseline_evaluation_results.json"),
+}
+
 # VQ-DeepSDF evaluation defaults
 DEEPSDF_VQ_EVALUATION = {
     "checkpoint": Path("./out/deepsdf_vq/deepsdf_vq_latest.pth"),
