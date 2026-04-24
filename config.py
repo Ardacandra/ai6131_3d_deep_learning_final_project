@@ -45,31 +45,32 @@ DEEPSDF_SETTINGS = {
     "far_field_distance_threshold": 0.05,  # Treat far points as outside when sign confidence is low
     "num_views": 100,               # Number of virtual camera views
     "bounding_cube_dim": 2.0,       # Bounding cube dimension
-    "objects_per_category": 3,      # Max objects to preprocess per category (None = all)
+    "objects_per_category": 50,      # Max objects to preprocess per category (None = all)
     "random_seed": 42,              # Seed for reproducible object selection
     # Optional manual selection of exact model IDs per category.
     # If a category has a non-empty list here, preprocessing will use only those IDs
     # for that category (in the order provided) and ignore objects_per_category.
-    "selected_model_ids": {
-        # airplane
-        "02691156": [
-            "b4a420a55d3db8aca89fa467f217f46",
-            "3af52163a2d0551d91637951367b1518",
-            "6e4570ef29d420e17099115060cea9b5",
-        ],
-        # chair
-        "03001627": [
-            "5283a98b5c693e64ebefe6b1d594ad2e",
-            "c747e6ceb1a6faaa3074f48b99186254",
-            "5df875e6f0cc0e37f838a2212356e267",
-        ],
-        # table
-        "04379243": [
-            "e08d1cd0dc7dc73db9d7c2fc41e80228",
-            "fff492e352c8cb336240c88cd4684446",
-            "696beb1883be838cc955e5ed03ef3a2f",
-        ]
-    },
+    # "selected_model_ids": {
+    #     # airplane
+    #     "02691156": [
+    #         "b4a420a55d3db8aca89fa467f217f46",
+    #         "3af52163a2d0551d91637951367b1518",
+    #         "6e4570ef29d420e17099115060cea9b5",
+    #     ],
+    #     # chair
+    #     "03001627": [
+    #         "5283a98b5c693e64ebefe6b1d594ad2e",
+    #         "c747e6ceb1a6faaa3074f48b99186254",
+    #         "5df875e6f0cc0e37f838a2212356e267",
+    #     ],
+    #     # table
+    #     "04379243": [
+    #         "e08d1cd0dc7dc73db9d7c2fc41e80228",
+    #         "fff492e352c8cb336240c88cd4684446",
+    #         "696beb1883be838cc955e5ed03ef3a2f",
+    #     ]
+    # },
+    "selected_model_ids": None,
 }
 
 # DeepSDF dataset defaults
