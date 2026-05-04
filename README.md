@@ -1,6 +1,65 @@
-# AI6131-3D Deep Learning Final Project
+# Generative DeepSDF: Enhancing Implicit Shape Representation through Latent Vector Quantization
 
-This repository contains the final project for NTU MSAI's **AI6131-3D Deep Learning** course. The project focuses on 3D object recognition and reconstruction using deep learning techniques on the ShapeNet dataset.
+**NTU MSAI — AI6131-3D Deep Learning Final Project**
+
+This project proposes **Generative DeepSDF**, which integrates a Vector Quantization (VQ) bottleneck into the DeepSDF architecture to discretize the latent manifold into a learned codebook of geometric features. A lightweight Autoregressive (AR) Transformer prior is then trained to model the distribution of these discrete sequences, enabling novel 3D shape synthesis from a compact implicit representation.
+
+The framework is evaluated on a ShapeNet subset of three categories — **Chair**, **Table**, and **Airplane** (50 objects each) — demonstrating that the VQ bottleneck preserves reconstruction fidelity while significantly improving latent space clustering, and that the AR prior outperforms baseline continuous sampling in generative quality.
+
+## Results
+
+### Data Preprocessing
+
+Point clouds with SDF labels are sampled near each mesh surface and in free space. The figure below shows a sample preprocessing output for the Chair category.
+
+![SDF Preprocessing Output](report/img/chair_3d_scatter.png)
+
+### Reconstruction Fidelity
+
+The VQ bottleneck introduces only a marginal reduction in reconstruction accuracy compared to the continuous baseline, while providing a structured discrete latent space.
+
+| Model | Chamfer Distance ↓ | Earth Mover's Distance ↓ |
+|---|---|---|
+| **Baseline DeepSDF** | **0.1288** | **0.1431** |
+| Generative DeepSDF | 0.1396 | 0.1474 |
+
+| Ground Truth | Baseline DeepSDF | Generative DeepSDF |
+|:---:|:---:|:---:|
+| ![Ground Truth](report/img/reconstruction_ground_truth.png) | ![Baseline Reconstruction](report/img/reconstruction_baseline_deepsdf.png) | ![Generative Reconstruction](report/img/reconstruction_generative_deepsdf.png) |
+
+### Latent Space Regularization
+
+The VQ bottleneck significantly improves latent space structure. Shapes of the same category share consistent discrete code patterns, while inter-class boundaries are clearly separable.
+
+| Model | Silhouette Coefficient ↑ |
+|---|---|
+| Baseline DeepSDF | 0.0522 |
+| **Generative DeepSDF** | **0.1298** |
+
+| Ground Truth Samples | Discrete Latent Code Heatmap |
+|:---:|:---:|
+| ![Latent Ground Truth](report/img/latent_codes_groundtruth.png) | ![Latent Code Heatmap](report/img/latent_codes.png) |
+
+### Generative Quality
+
+The AR Transformer prior samples valid combinations of discrete geometric features, far outperforming random Gaussian sampling from the unconstrained baseline latent space.
+
+| Generation Method | MMD ↓ |
+|---|---|
+| Baseline (Random Gaussian Sampling) | 0.3282 |
+| **Generative DeepSDF (AR Prior)** | **0.1046** |
+
+**Baseline (Random Gaussian Sampling):**
+
+| | | |
+|:---:|:---:|:---:|
+| ![Baseline Gen 1](report/img/baseline_gen_1.png) | ![Baseline Gen 2](report/img/baseline_gen_2.png) | ![Baseline Gen 3](report/img/baseline_gen_3.png) |
+
+**Generative DeepSDF (AR Prior):**
+
+| | | |
+|:---:|:---:|:---:|
+| ![AR Gen 1](report/img/ar_gen_1.png) | ![AR Gen 2](report/img/ar_gen_2.png) | ![AR Gen 3](report/img/ar_gen_3.png) |
 
 ## Prerequisites
 
